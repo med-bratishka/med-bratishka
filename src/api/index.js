@@ -5,7 +5,7 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Автоматически добавляем токен из localStorage
+
 api.interceptors.request.use((config) => {
   const stored = localStorage.getItem('medcare_user')
   if (stored) {
@@ -15,7 +15,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// ──── Auth ────
+
 export const authApi = {
   login: (email, password, role) =>
     api.post('/auth/login', { email, password, role }),
@@ -23,20 +23,20 @@ export const authApi = {
     api.post('/auth/register', data),
 }
 
-// ──── Пациенты (для врача) ────
+
 export const patientsApi = {
   getAll: () => api.get('/doctor/patients'),
   getById: (id) => api.get(`/doctor/patients/${id}`),
 }
 
-// ──── Чат ────
+
 export const chatApi = {
   getMessages: (patientId) => api.get(`/chat/${patientId}`),
   sendMessage: (patientId, text) =>
     api.post(`/chat/${patientId}`, { text }),
 }
 
-// ──── Лекарства ────
+
 export const medsApi = {
   getByPatient: (patientId) => api.get(`/medications/${patientId}`),
   add: (patientId, med) => api.post(`/medications/${patientId}`, med),
@@ -44,14 +44,14 @@ export const medsApi = {
   delete: (medId) => api.delete(`/medications/${medId}`),
 }
 
-// ──── Инвайт-коды ────
+
 export const inviteApi = {
   generate: () => api.post('/invite/generate'),
   getAll: () => api.get('/invite/list'),
   use: (code) => api.post('/invite/use', { code }),
 }
 
-// ──── Напоминания ────
+
 export const remindersApi = {
   getToday: () => api.get('/reminders/today'),
 }
