@@ -14,7 +14,7 @@ import (
 type ClinicRepository interface {
 	CreateClinicTX(ctx context.Context, tx transaction.Transaction, name, description, address, phone, email string, createdAt, updatedAt int64) (int64, error)
 	AddClinicAdminTX(ctx context.Context, tx transaction.Transaction, clinicID, userID, createdAt int64) error
-	GetClinicByIDTX(ctx context.Context, tx transaction.Transaction, clinicID int64) (map[string]interface{}, error)
+	GetClinicByIDTX(ctx context.Context, tx transaction.Transaction, clinicID int64) (*models.Clinic, error)
 	IsClinicAdminTX(ctx context.Context, tx transaction.Transaction, clinicID, userID int64) (bool, error)
 }
 
@@ -68,7 +68,7 @@ func (r *pgClinicRepository) AddClinicAdminTX(ctx context.Context, tx transactio
 	return nil
 }
 
-func (r *pgClinicRepository) GetClinicByIDTX(ctx context.Context, tx transaction.Transaction, clinicID int64) (map[string]interface{}, error) {
+func (r *pgClinicRepository) GetClinicByIDTX(ctx context.Context, tx transaction.Transaction, clinicID int64) (*models.Clinic, error) {
 	query := `
 		SELECT id, name, description, address, phone, email, created_at, updated_at
 		FROM clinics
@@ -84,30 +84,7 @@ func (r *pgClinicRepository) GetClinicByIDTX(ctx context.Context, tx transaction
 		return nil, fmt.Errorf("query error: %w", err)
 	}
 
-	var description, address, phone, email string
-	if clinic.Description != nil {
-		description = *clinic.Description
-	}
-	if clinic.Address != nil {
-		address = *clinic.Address
-	}
-	if clinic.Phone != nil {
-		phone = *clinic.Phone
-	}
-	if clinic.Email != nil {
-		email = *clinic.Email
-	}
-
-	return map[string]interface{}{
-		"id":          clinic.ID,
-		"name":        clinic.Name,
-		"description": description,
-		"address":     address,
-		"phone":       phone,
-		"email":       email,
-		"created_at":  clinic.CreatedAt,
-		"updated_at":  clinic.UpdatedAt,
-	}, nil
+	return &clinic, nil
 }
 
 func (r *pgClinicRepository) IsClinicAdminTX(ctx context.Context, tx transaction.Transaction, clinicID, userID int64) (bool, error) {

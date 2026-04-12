@@ -15,7 +15,7 @@ type PatientRepository interface {
 	CreatePatientProfileTX(ctx context.Context, tx transaction.Transaction, userID int64, birthDate int64, gender string, createdAt, updatedAt int64) error
 	AddPatientToDoctorTX(ctx context.Context, tx transaction.Transaction, doctorID, patientID, createdAt int64) error
 	RemovePatientFromDoctorTX(ctx context.Context, tx transaction.Transaction, doctorID, patientID, deletedAt int64) error
-	GetPatientProfileTX(ctx context.Context, tx transaction.Transaction, userID int64) (map[string]interface{}, error)
+	GetPatientProfileTX(ctx context.Context, tx transaction.Transaction, userID int64) (*models.PatientProfile, error)
 	IsPatientLinkedToDoctorTX(ctx context.Context, tx transaction.Transaction, patientID, doctorID int64) (bool, error)
 }
 
@@ -74,7 +74,7 @@ func (r *pgPatientRepository) RemovePatientFromDoctorTX(ctx context.Context, tx 
 	return nil
 }
 
-func (r *pgPatientRepository) GetPatientProfileTX(ctx context.Context, tx transaction.Transaction, userID int64) (map[string]interface{}, error) {
+func (r *pgPatientRepository) GetPatientProfileTX(ctx context.Context, tx transaction.Transaction, userID int64) (*models.PatientProfile, error) {
 	query := `
 		SELECT user_id, birth_date, gender, created_at, updated_at
 		FROM patient_profiles
@@ -90,22 +90,7 @@ func (r *pgPatientRepository) GetPatientProfileTX(ctx context.Context, tx transa
 		return nil, fmt.Errorf("query error: %w", err)
 	}
 
-	var gender string
-	var birthDate int64
-	if profile.Gender != nil {
-		gender = *profile.Gender
-	}
-	if profile.BirthDate != nil {
-		birthDate = *profile.BirthDate
-	}
-
-	return map[string]interface{}{
-		"user_id":    profile.UserID,
-		"birth_date": birthDate,
-		"gender":     gender,
-		"created_at": profile.CreatedAt,
-		"updated_at": profile.UpdatedAt,
-	}, nil
+	return &profile, nil
 }
 
 func (r *pgPatientRepository) IsPatientLinkedToDoctorTX(ctx context.Context, tx transaction.Transaction, patientID, doctorID int64) (bool, error) {

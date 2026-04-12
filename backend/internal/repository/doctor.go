@@ -16,7 +16,7 @@ type DoctorRepository interface {
 	AddDoctorToClinicTX(ctx context.Context, tx transaction.Transaction, doctorID, clinicID, invitedByAdminID, createdAt, updatedAt int64) error
 	ApproveDoctorInClinicTX(ctx context.Context, tx transaction.Transaction, doctorID, clinicID, updatedAt int64) error
 	RejectDoctorInClinicTX(ctx context.Context, tx transaction.Transaction, doctorID, clinicID, updatedAt int64) error
-	GetDoctorProfileTX(ctx context.Context, tx transaction.Transaction, userID int64) (map[string]interface{}, error)
+	GetDoctorProfileTX(ctx context.Context, tx transaction.Transaction, userID int64) (*models.DoctorProfile, error)
 	UpsertDoctorCodeTX(ctx context.Context, tx transaction.Transaction, userID int64, doctorCode string, createdAt, updatedAt int64) error
 	FindDoctorIDByCodeTX(ctx context.Context, tx transaction.Transaction, doctorCode string) (int64, error)
 	HasActiveClinicMembershipTX(ctx context.Context, tx transaction.Transaction, doctorID int64) (bool, error)
@@ -92,7 +92,7 @@ func (r *pgDoctorRepository) RejectDoctorInClinicTX(ctx context.Context, tx tran
 	return nil
 }
 
-func (r *pgDoctorRepository) GetDoctorProfileTX(ctx context.Context, tx transaction.Transaction, userID int64) (map[string]interface{}, error) {
+func (r *pgDoctorRepository) GetDoctorProfileTX(ctx context.Context, tx transaction.Transaction, userID int64) (*models.DoctorProfile, error) {
 	query := `
 		SELECT user_id, specialization, license_number, bio, doctor_code, created_at, updated_at
 		FROM doctor_profiles
@@ -108,29 +108,7 @@ func (r *pgDoctorRepository) GetDoctorProfileTX(ctx context.Context, tx transact
 		return nil, fmt.Errorf("query error: %w", err)
 	}
 
-	var specialization, licenseNumber, bio, doctorCode string
-	if profile.Specialization != nil {
-		specialization = *profile.Specialization
-	}
-	if profile.LicenseNumber != nil {
-		licenseNumber = *profile.LicenseNumber
-	}
-	if profile.Bio != nil {
-		bio = *profile.Bio
-	}
-	if profile.DoctorCode != nil {
-		doctorCode = *profile.DoctorCode
-	}
-
-	return map[string]interface{}{
-		"user_id":        profile.UserID,
-		"specialization": specialization,
-		"license_number": licenseNumber,
-		"bio":            bio,
-		"doctor_code":    doctorCode,
-		"created_at":     profile.CreatedAt,
-		"updated_at":     profile.UpdatedAt,
-	}, nil
+	return &profile, nil
 }
 
 func (r *pgDoctorRepository) UpsertDoctorCodeTX(ctx context.Context, tx transaction.Transaction, userID int64, doctorCode string, createdAt, updatedAt int64) error {
