@@ -1,0 +1,735 @@
+openapi: 3.0.0
+info:
+  title: Medbratishka API
+  description: API платформы для связи между докторами и пациентами
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://medbratishka.com/support
+    email: support@medbratishka.com
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api.medbratishka.com
+    description: Production server
+
+paths:
+  /auth/register:
+    post:
+      summary: Регистрация нового пользователя
+      description: Создает новый аккаунт пользователя в системе
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Успешная регистрация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Неверный формат запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Пользователь уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      summary: Вход в систему
+      description: Аутентифицирует пользователя и выдает токены
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Неверный формат запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Неверные учетные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      summary: Обновление токенов
+      description: Обновляет access и refresh токены используя текущую сессию
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Новые токены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Неверный токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      summary: Выход из текущей сессии
+      description: Завершает текущую сессию пользователя
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешный выход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Неверный токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout-all:
+    post:
+      summary: Выход из всех сессий
+      description: Завершает все сессии пользователя на всех устройствах
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешный выход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Неверный токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clinics/{clinic_id}/doctors/{doctor_id}/bind:
+    post:
+      summary: Привязать доктора к клинике
+      description: Администратор клиники привязывает доктора к своей клинике
+      tags:
+        - Bindings
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: clinic_id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: path
+          name: doctor_id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Доктор успешно привязан к клинике
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Некорректные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Нет прав на клинику
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Доктор не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /doctors/me/code:
+    put:
+      summary: Сохранить код доктора
+      description: Доктор сохраняет или обновляет свой уникальный код для привязки пациентов
+      tags:
+        - Bindings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorCodeRequest'
+      responses:
+        '200':
+          description: Код доктора успешно сохранен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorCodeResponse'
+        '400':
+          description: Неверный формат запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Доктор не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /patients/me/bind-doctor:
+    post:
+      summary: Привязаться к доктору по коду
+      description: Пациент вводит doctor code и привязывается к доктору
+      tags:
+        - Bindings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorCodeRequest'
+      responses:
+        '200':
+          description: Пациент успешно привязан к доктору
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Неверный формат запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Доктор или пациент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Health check
+      description: Проверяет здоровье сервера
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Сервер работает
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /chats:
+    get:
+      summary: Get my chats
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Chats list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatsResponse'
+    post:
+      summary: Create chat with doctor
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChatRequest'
+      responses:
+        '200':
+          description: Chat created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /chats/{chat_id}/messages:
+    get:
+      summary: Get chat messages
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: chat_id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Messages list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessagesResponse'
+    post:
+      summary: Send message to chat
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: chat_id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageRequest'
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessageResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - login
+        - email
+        - password
+        - first_name
+        - last_name
+        - role
+      properties:
+        login:
+          type: string
+          minLength: 3
+          maxLength: 50
+          description: Уникальное имя пользователя
+          example: doctor.ivanov
+        email:
+          type: string
+          format: email
+          description: Email пользователя
+          example: ivanov@clinic.com
+        phone:
+          type: string
+          description: Номер телефона (опционально)
+          example: "+79991234567"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Пароль пользователя
+          example: SecurePass123!
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Имя
+          example: Иван
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Фамилия
+          example: Иванов
+        middle_name:
+          type: string
+          maxLength: 100
+          description: Отчество (опционально)
+          example: Иванович
+        role:
+          type: string
+          enum:
+            - admin
+            - doctor
+            - patient
+          description: Роль пользователя
+          example: doctor
+
+    LoginRequest:
+      type: object
+      required:
+        - access_parameter
+        - password
+      properties:
+        access_parameter:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Email, номер телефона или login
+          example: ivanov@clinic.com
+        password:
+          type: string
+          minLength: 1
+          description: Пароль
+          example: SecurePass123!
+
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT токен
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expires_at:
+          type: integer
+          format: int64
+          description: Время истечения в миллисекундах
+          example: 1712973600000
+        type:
+          type: string
+          description: Тип токена
+          example: Bearer
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        login:
+          type: string
+          example: doctor.ivanov
+        email:
+          type: string
+          example: ivanov@clinic.com
+        phone:
+          type: string
+          example: "+79991234567"
+        role:
+          type: string
+          example: doctor
+        is_verified:
+          type: boolean
+          example: false
+        first_name:
+          type: string
+          example: Иван
+        last_name:
+          type: string
+          example: Иванов
+        middle_name:
+          type: string
+          example: Иванович
+        created_at:
+          type: integer
+          format: int64
+          example: 1712900000000
+        updated_at:
+          type: integer
+          format: int64
+          example: 1712900000000
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          $ref: '#/components/schemas/TokenResponse'
+        refresh_token:
+          $ref: '#/components/schemas/TokenResponse'
+        server_time:
+          type: integer
+          format: int64
+          description: Текущее время сервера в миллисекундах
+          example: 1712900000000
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Код ошибки
+          example: UNAUTHORIZED
+        message:
+          type: string
+          description: Сообщение об ошибке
+          example: invalid credentials
+        type:
+          type: string
+          description: Тип ошибки
+          example: unauthorized
+        details:
+          type: object
+          description: Детали ошибки
+          nullable: true
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: operation completed successfully
+
+    DoctorCodeRequest:
+      type: object
+      required:
+        - doctor_code
+      properties:
+        doctor_code:
+          type: string
+          minLength: 3
+          maxLength: 128
+          description: Уникальный код доктора
+          example: DR-ABCD-1234
+
+    DoctorCodeResponse:
+      type: object
+      properties:
+        doctor_code:
+          type: string
+          description: Текущий уникальный код доктора
+          example: DR-ABCD-1234
+
+    CreateChatRequest:
+      type: object
+      required:
+        - doctor_id
+      properties:
+        doctor_id:
+          type: integer
+          format: int64
+
+    ChatMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+
+    ChatMessageResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        sender_id:
+          type: integer
+          format: int64
+        sender_name:
+          type: string
+        content:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+
+    ChatResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        doctor_id:
+          type: integer
+          format: int64
+        patient_id:
+          type: integer
+          format: int64
+        other_user_id:
+          type: integer
+          format: int64
+        other_login:
+          type: string
+        other_name:
+          type: string
+        updated_at:
+          type: integer
+          format: int64
+
+    ChatsResponse:
+      type: object
+      properties:
+        chats:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatResponse'
+
+    ChatMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessageResponse'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен для аутентификации
+
+tags:
+  - name: Authentication
+    description: Endpoints для аутентификации и регистрации
+  - name: Bindings
+    description: Привязка докторов к клиникам и пациентов к докторам
+  - name: Health
+    description: Endpoints для проверки здоровья сервера
+  - name: Chat
+    description: Doctor-patient chats
