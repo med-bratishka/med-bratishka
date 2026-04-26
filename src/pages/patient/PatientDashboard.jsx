@@ -14,7 +14,7 @@ export default function PatientDashboard() {
   const loadChats = () => {
     setLoading(true)
     chatApi.getChats()
-      .then((res) => { const data = res.data; const list = data?.chats ?? data; setChats(Array.isArray(list) ? list : []) })
+      .then((res) => { const data = res.data; const list = data?.items ?? data?.chats ?? data; setChats(Array.isArray(list) ? list : []) })
       .catch(console.error)
       .finally(() => setLoading(false))
   }
@@ -29,7 +29,8 @@ export default function PatientDashboard() {
       await patientApi.bindDoctor(bindCode.trim())
       setBindSuccess(true)
       setBindCode('')
-      loadChats()
+      // Small delay to let backend process, then reload chats
+      setTimeout(() => loadChats(), 500)
     } catch (err) {
       setBindError(err?.response?.data?.message || 'Неверный код врача')
     } finally {

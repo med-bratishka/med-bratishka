@@ -62,9 +62,10 @@ export default function StaffAuthPage() {
 
       const { access_token, refresh_token, user } = res.data
 
+
       login({
         id: user.id,
-        name: `${form.firstName || ''} ${form.lastName || ''}`.trim() || user.login,
+        name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.login || user.email,
         role: user.role,
         token: access_token.token,
         refreshToken: refresh_token.token,

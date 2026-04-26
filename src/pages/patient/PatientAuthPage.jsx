@@ -5,7 +5,14 @@ import { authApi } from '../api/index'
 
 export default function PatientAuthPage() {
   const [mode, setMode] = useState('login')
-  const [form, setForm] = useState({ email: '', password: '', name: '', inviteCode: '' })
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    inviteCode: '',
+  })
   const [loading, setLoading] = useState(false)
 
   const { login, authError, setAuthError } = useAuth()
@@ -17,15 +24,68 @@ export default function PatientAuthPage() {
   }
 
   const handleSubmit = async () => {
-    // TODO: убрать мок после подключения бэка
-    const mockUser = {
-      id: 2,
-      name: form.name || 'Алёна',
-      role: 'patient',
-      token: 'mock-token',
+    setLoading(true)
+    setAuthError(null)
+
+    try {
+      let res
+
+      if (mode === 'login') {
+        res = await authApi.login(form.email, form.password)
+      } else {
+        if (!form.firstName || !form.lastName || !form.phone || !form.inviteCode) {
+          setAuthError('Заполните все поля')
+          setLoading(false)
+          return
+        }
+        if (form.password.length < 8) {
+          setAuthError('Пароль должен быть не менее 8 символов')
+          setLoading(false)
+          return
+        }
+        res = await authApi.register({
+          login: form.email,
+          email: form.email,
+          phone: form.phone,
+          password: form.password,
+          first_name: form.firstName,
+          last_name: form.lastName,
+          middle_name: '',
+          role: 'patient',
+          invite_code: form.inviteCode,
+        })
+      }
+
+      const { access_token, refresh_token, user } = res.data
+
+      login({
+        id: user.id,
+        name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.login || user.email,
+        role: user.role,
+        token: access_token.token,
+        refreshToken: refresh_token.token,
+      })
+
+      navigate('/patient')
+    } catch (err) {
+      const data = err?.response?.data
+      const rawMsg = data?.message || data?.error || ''
+      let message = rawMsg
+
+      if (rawMsg === 'validation failed' || rawMsg === 'invalid request body') {
+        const details = data?.details
+        if (details && typeof details === 'string') {
+          message = details
+        } else {
+          message = 'Ошибка валидации: проверьте все поля (пароль — минимум 8 символов)'
+        }
+      }
+
+      if (!message) message = 'Неверный email или пароль'
+      setAuthError(message)
+    } finally {
+      setLoading(false)
     }
-    login(mockUser)
-    navigate('/patient')
   }
 
   const handleKeyDown = (e) => {
@@ -54,18 +114,47 @@ export default function PatientAuthPage() {
           </div>
 
           <div className="p-7 flex flex-col gap-4">
+
             {mode === 'register' && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-gray-500">Имя</label>
-                <input
-                  className="input-field"
-                  name="name"
-                  placeholder="Алёна Иванова"
-                  value={form.name}
-                  onChange={handleChange}
-                  onKeyDown={handleKeyDown}
-                />
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs text-gray-500">Имя</label>
+                    <input
+                      className="input-field"
+                      name="firstName"
+                      placeholder="Алёна"
+                      value={form.firstName}
+                      onChange={handleChange}
+                      onKeyDown={handleKeyDown}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs text-gray-500">Фамилия</label>
+                    <input
+                      className="input-field"
+                      name="lastName"
+                      placeholder="Иванова"
+                      value={form.lastName}
+                      onChange={handleChange}
+                      onKeyDown={handleKeyDown}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-gray-500">Телефон</label>
+                  <input
+                    className="input-field"
+                    name="phone"
+                    type="tel"
+                    placeholder="+79001234567"
+                    value={form.phone}
+                    onChange={handleChange}
+                    onKeyDown={handleKeyDown}
+                  />
+                </div>
+              </>
             )}
 
             <div className="flex flex-col gap-1.5">
@@ -92,6 +181,9 @@ export default function PatientAuthPage() {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
               />
+              {mode === 'register' && form.password.length > 0 && form.password.length < 8 && (
+                <p className="text-xs text-amber-500">Минимум 8 символов ({form.password.length}/8)</p>
+              )}
             </div>
 
             {mode === 'register' && (
