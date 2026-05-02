@@ -136,7 +136,7 @@ func (h *BindingsHandler) UpsertDoctorCode(w http.ResponseWriter, r *http.Reques
 // @Produce json
 // @Security BearerAuth
 // @Param request body models.DoctorCodeRequest true "Doctor code payload"
-// @Success 200 {object} models.SuccessResponse
+// @Success 200 {object} models.DoctorIDResponse
 // @Failure 400 {object} models.ErrorResponse
 // @Failure 401 {object} models.ErrorResponse
 // @Failure 404 {object} models.ErrorResponse
@@ -159,12 +159,13 @@ func (h *BindingsHandler) BindPatientToDoctorByCode(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if err := h.bindingsService.BindPatientToDoctorByCode(r.Context(), userCtx.ID, deref(req.DoctorCode)); err != nil {
+	doctorID, err := h.bindingsService.BindPatientToDoctorByCode(r.Context(), userCtx.ID, deref(req.DoctorCode))
+	if err != nil {
 		h.handleBindingsError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, &models.SuccessResponse{Success: true, Message: "patient bound to doctor"})
+	writeJSON(w, http.StatusOK, &models.DoctorIDResponse{DoctorID: doctorID})
 }
 
 func (h *BindingsHandler) respondWithError(w http.ResponseWriter, r *http.Request, statusCode int, code, message string, cause error) {
