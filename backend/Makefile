@@ -9,9 +9,21 @@ DB_PASSWORD = postgres
 DB_NAME = medbratishka
 DB_SSLMODE = disable
 SWAGGER_IMAGE = medbratishka-swagger
-SWAGGER_SPEC = swagger.yaml
-SWAGGER_UI_SPEC = openapi.yaml
 SWAGGER_PORT = 8081
+
+MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+BACKEND_DIR := $(abspath $(MAKEFILE_DIR))
+ROOT_DIR := $(abspath $(BACKEND_DIR)/..)
+
+SWAGGER_SPEC_CANDIDATES := $(ROOT_DIR)/api-spec/swagger.yaml $(ROOT_DIR)/swagger.yaml
+SWAGGER_UI_SPEC_CANDIDATES := $(ROOT_DIR)/api-spec/openapi.yaml $(ROOT_DIR)/openapi.yaml
+SWAGGER_SPEC := $(firstword $(wildcard $(SWAGGER_SPEC_CANDIDATES)))
+SWAGGER_UI_SPEC := $(firstword $(wildcard $(SWAGGER_UI_SPEC_CANDIDATES)))
+
+CONTAINER_ROOT := /workspace
+CONTAINER_BACKEND := $(CONTAINER_ROOT)/backend
+CONTAINER_SWAGGER_SPEC := $(patsubst $(ROOT_DIR)%,$(CONTAINER_ROOT)%,$(SWAGGER_SPEC))
+CONTAINER_SWAGGER_UI_SPEC := $(patsubst $(ROOT_DIR)%,$(CONTAINER_ROOT)%,$(SWAGGER_UI_SPEC))
 
 help:
 	@echo "Medbratishka - Build Management"
@@ -67,17 +79,19 @@ run-full:
 
 generate:
 	@echo "Генерирую Swagger модели..."
-	@if [ ! -f "$(SWAGGER_SPEC)" ]; then \
-		echo "Не найден файл спецификации: $(SWAGGER_SPEC)"; \
-		echo "Создай swagger 2.0 spec в $(SWAGGER_SPEC)"; \
+	@if [ -z "$(SWAGGER_SPEC)" ] || [ ! -f "$(SWAGGER_SPEC)" ]; then \
+		echo "Не найден файл спецификации swagger.yaml"; \
+		echo "Проверены пути:"; \
+		echo "  - $(ROOT_DIR)/api-spec/swagger.yaml"; \
+		echo "  - $(ROOT_DIR)/swagger.yaml"; \
 		exit 1; \
 	fi
-	docker build -f Dockerfile.swagger -t $(SWAGGER_IMAGE) .
+	docker build -f $(BACKEND_DIR)/Dockerfile.swagger -t $(SWAGGER_IMAGE) $(BACKEND_DIR)
 	docker run --rm \
 		--user $(shell id -u):$(shell id -g) \
-		-v $(shell pwd):/app \
-		-w /app \
-		$(SWAGGER_IMAGE) generate model -f $(SWAGGER_SPEC)
+		-v $(ROOT_DIR):$(CONTAINER_ROOT) \
+		-w $(CONTAINER_BACKEND) \
+		$(SWAGGER_IMAGE) generate model -f $(CONTAINER_SWAGGER_SPEC)
 	@echo "Модели успешно сгенерированы!"
 	@echo "Файлы сгенерированы в: ./models/"
 
@@ -85,16 +99,19 @@ build-models: generate
 
 build-models-ci:
 	@echo "CI: Генерирую Swagger модели..."
-	@if [ ! -f "$(SWAGGER_SPEC)" ]; then \
-		echo "Не найден файл спецификации: $(SWAGGER_SPEC)"; \
+	@if [ -z "$(SWAGGER_SPEC)" ] || [ ! -f "$(SWAGGER_SPEC)" ]; then \
+		echo "Не найден файл спецификации swagger.yaml"; \
+		echo "Проверены пути:"; \
+		echo "  - $(ROOT_DIR)/api-spec/swagger.yaml"; \
+		echo "  - $(ROOT_DIR)/swagger.yaml"; \
 		exit 1; \
 	fi
-	docker build -f Dockerfile.swagger -t $(SWAGGER_IMAGE) .
+	docker build -f $(BACKEND_DIR)/Dockerfile.swagger -t $(SWAGGER_IMAGE) $(BACKEND_DIR)
 	docker run --rm \
 		--user $(shell id -u):$(shell id -g) \
-		-v $(shell pwd):/app \
-		-w /app \
-		$(SWAGGER_IMAGE) generate model -f $(SWAGGER_SPEC)
+		-v $(ROOT_DIR):$(CONTAINER_ROOT) \
+		-w $(CONTAINER_BACKEND) \
+		$(SWAGGER_IMAGE) generate model -f $(CONTAINER_SWAGGER_SPEC)
 
 generate-local:
 	@echo "Генерирую Swagger модели локально..."
@@ -102,21 +119,24 @@ generate-local:
 		echo "Устанавливаю swagger..."; \
 		go install github.com/go-swagger/go-swagger/cmd/swagger@latest; \
 	fi
-	swagger generate model -f $(SWAGGER_SPEC)
+	swagger generate model -f $(SWAGGER_SPEC) -t $(BACKEND_DIR)
 	@echo "Модели успешно сгенерированы!"
 
 swagger.start:
 	@echo "Запускаю Swagger UI..."
-	@if [ ! -f "$(SWAGGER_UI_SPEC)" ]; then \
-		echo "Не найден файл спецификации для UI: $(SWAGGER_UI_SPEC)"; \
+	@if [ -z "$(SWAGGER_UI_SPEC)" ] || [ ! -f "$(SWAGGER_UI_SPEC)" ]; then \
+		echo "Не найден файл спецификации openapi.yaml"; \
+		echo "Проверены пути:"; \
+		echo "  - $(ROOT_DIR)/api-spec/openapi.yaml"; \
+		echo "  - $(ROOT_DIR)/openapi.yaml"; \
 		exit 1; \
 	fi
 	@if [ ! "$(shell docker ps -q -f name=medbratishka-swagger)" ]; then \
 		docker run --restart unless-stopped -d \
 			--name medbratishka-swagger \
 			-p $(SWAGGER_PORT):8080 \
-			-e SWAGGER_JSON=/specs/$(SWAGGER_UI_SPEC) \
-			-v $(shell pwd):/specs \
+			-e SWAGGER_JSON=$(CONTAINER_SWAGGER_UI_SPEC) \
+			-v $(ROOT_DIR):$(CONTAINER_ROOT) \
 			swaggerapi/swagger-ui; \
 		echo "Swagger UI запущен на http://localhost:$(SWAGGER_PORT)"; \
 	else \

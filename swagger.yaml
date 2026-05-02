@@ -113,7 +113,7 @@ paths:
         "200":
           description: ok
           schema:
-            $ref: "#/definitions/SuccessResponse"
+            $ref: "#/definitions/DoctorIDResponse"
         "400":
           description: bad request
           schema:
@@ -426,6 +426,13 @@ definitions:
       doctor_code:
         type: string
         example: DR-ABCD-1234
+
+  DoctorIDResponse:
+    type: object
+    properties:
+      doctor_id:
+        type: integer
+        format: int64
 
   CreateChatRequest:
     type: object

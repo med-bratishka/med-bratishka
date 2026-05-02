@@ -11,17 +11,16 @@ import (
 )
 
 var (
-	ErrForbidden          = errors.New("forbidden")
-	ErrInvalidDoctorCode  = errors.New("invalid doctor code")
-	ErrDoctorNotFound     = errors.New("doctor not found")
-	ErrPatientNotFound    = errors.New("patient not found")
-	ErrAdminAccessDenied  = errors.New("admin has no access to clinic")
-	ErrDoctorCodeConflict = errors.New("doctor code already used")
+	ErrForbidden         = errors.New("forbidden")
+	ErrInvalidDoctorCode = errors.New("invalid doctor code")
+	ErrDoctorNotFound    = errors.New("doctor not found")
+	ErrPatientNotFound   = errors.New("patient not found")
+	ErrAdminAccessDenied = errors.New("admin has no access to clinic")
 )
 
 type BindingsService interface {
 	BindDoctorToClinicByAdmin(ctx context.Context, adminID, clinicID, doctorID int64) error
-	BindPatientToDoctorByCode(ctx context.Context, patientID int64, doctorCode string) error
+	BindPatientToDoctorByCode(ctx context.Context, patientID int64, doctorCode string) (int64, error)
 	UpsertDoctorCode(ctx context.Context, doctorID int64, doctorCode string) error
 }
 
@@ -96,42 +95,42 @@ func (s *bindingsService) BindDoctorToClinicByAdmin(ctx context.Context, adminID
 	return nil
 }
 
-func (s *bindingsService) BindPatientToDoctorByCode(ctx context.Context, patientID int64, doctorCode string) error {
+func (s *bindingsService) BindPatientToDoctorByCode(ctx context.Context, patientID int64, doctorCode string) (int64, error) {
 	if doctorCode == "" {
-		return newServiceError(CodeBadRequest, ErrInvalidDoctorCode, "INVALID_DOCTOR_CODE", "invalid doctor code")
+		return 0, newServiceError(CodeBadRequest, ErrInvalidDoctorCode, "INVALID_DOCTOR_CODE", "invalid doctor code")
 	}
 
 	tx, err := s.txRepo.StartTransaction(ctx)
 	if err != nil {
-		return wrapInternal("BindPatientToDoctorByCode/StartTransaction", err)
+		return 0, wrapInternal("BindPatientToDoctorByCode/StartTransaction", err)
 	}
 	defer tx.Rollback()
 
 	if _, err = s.usersRepo.GetByIDTX(ctx, tx, patientID, domain.RolePatient); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return newServiceError(CodeNotFound, ErrPatientNotFound, "PATIENT_NOT_FOUND", "patient not found")
+			return 0, newServiceError(CodeNotFound, ErrPatientNotFound, "PATIENT_NOT_FOUND", "patient not found")
 		}
-		return wrapInternal("BindPatientToDoctorByCode/GetPatient", err)
+		return 0, wrapInternal("BindPatientToDoctorByCode/GetPatient", err)
 	}
 
 	doctorID, err := s.doctorRepo.FindDoctorIDByCodeTX(ctx, tx, doctorCode)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return newServiceError(CodeNotFound, ErrDoctorNotFound, "DOCTOR_NOT_FOUND", "doctor not found")
+			return 0, newServiceError(CodeNotFound, ErrDoctorNotFound, "DOCTOR_NOT_FOUND", "doctor not found")
 		}
-		return wrapInternal("BindPatientToDoctorByCode/FindDoctorIDByCodeTX", err)
+		return 0, wrapInternal("BindPatientToDoctorByCode/FindDoctorIDByCodeTX", err)
 	}
 
 	now := s.timeManager.Now().UnixMilli()
 	if err = s.patientRepo.AddPatientToDoctorTX(ctx, tx, doctorID, patientID, now); err != nil {
-		return wrapInternal("BindPatientToDoctorByCode/AddPatientToDoctorTX", err)
+		return 0, wrapInternal("BindPatientToDoctorByCode/AddPatientToDoctorTX", err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return wrapInternal("BindPatientToDoctorByCode/Commit", err)
+		return 0, wrapInternal("BindPatientToDoctorByCode/Commit", err)
 	}
 
-	return nil
+	return doctorID, nil
 }
 
 func (s *bindingsService) UpsertDoctorCode(ctx context.Context, doctorID int64, doctorCode string) error {

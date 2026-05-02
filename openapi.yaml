@@ -291,7 +291,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/DoctorIDResponse'
         '400':
           description: Неверный формат запроса
           content:
@@ -640,8 +640,14 @@ components:
       properties:
         doctor_code:
           type: string
-          description: Текущий уникальный код доктора
           example: DR-ABCD-1234
+
+    DoctorIDResponse:
+      type: object
+      properties:
+        doctor_id:
+          type: integer
+          format: int64
 
     CreateChatRequest:
       type: object
