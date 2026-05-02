@@ -15,6 +15,7 @@ type ClinicRepository interface {
 	CreateClinicTX(ctx context.Context, tx transaction.Transaction, name, description, address, phone, email string, createdAt, updatedAt int64) (int64, error)
 	AddClinicAdminTX(ctx context.Context, tx transaction.Transaction, clinicID, userID, createdAt int64) error
 	GetClinicByIDTX(ctx context.Context, tx transaction.Transaction, clinicID int64) (*models.Clinic, error)
+	GetClinicsTX(ctx context.Context, tx transaction.Transaction) ([]models.Clinic, error)
 	IsClinicAdminTX(ctx context.Context, tx transaction.Transaction, clinicID, userID int64) (bool, error)
 }
 
@@ -79,12 +80,28 @@ func (r *pgClinicRepository) GetClinicByIDTX(ctx context.Context, tx transaction
 	err := tx.Txm().GetContext(ctx, &clinic, query, clinicID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("clinic not found")
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("query error: %w", err)
 	}
 
 	return &clinic, nil
+}
+
+func (r *pgClinicRepository) GetClinicsTX(ctx context.Context, tx transaction.Transaction) ([]models.Clinic, error) {
+	query := `
+		SELECT id, name, description, address, phone, email, created_at, updated_at
+		FROM clinics
+		WHERE deleted_at IS NULL
+		ORDER BY id
+	`
+
+	var clinics []models.Clinic
+	if err := tx.Txm().SelectContext(ctx, &clinics, query); err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	return clinics, nil
 }
 
 func (r *pgClinicRepository) IsClinicAdminTX(ctx context.Context, tx transaction.Transaction, clinicID, userID int64) (bool, error) {
