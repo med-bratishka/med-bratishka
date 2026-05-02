@@ -28,6 +28,7 @@ func main() {
 	})
 
 	deps.AuthHandler().FillHandlers(router)
+	deps.CatalogHandler().FillHandlers(router)
 	deps.BindingsHandler().FillHandlers(router)
 	deps.ChatHandler().FillHandlers(router)
 
