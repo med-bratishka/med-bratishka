@@ -40,6 +40,7 @@ export const authApi = {
 export const chatApi = {
   getChats: () => api.get('/chats'),
   createChat: (doctorId) => api.post('/chats', { doctor_id: doctorId }),
+  closeChat: (chatId) => api.delete(`/chats/${chatId}`),
   getMessages: (chatId, params = {}) =>
     api.get(`/chats/${chatId}/messages`, { params }),
   sendMessage: (chatId, content) =>
@@ -48,17 +49,22 @@ export const chatApi = {
 
 export const doctorApi = {
   setCode: (code) => api.put('/doctors/me/code', { doctor_code: code }),
+  unlinkPatient: (patientId) => api.delete(`/doctors/me/patients/${patientId}`),
 }
 
 export const patientApi = {
   bindDoctor: (code) => api.post('/patients/me/bind-doctor', { doctor_code: code }),
 }
 
+export const prescriptionApi = {
+  getForPatient: (patientId) => api.get('/prescriptions', { params: { patient_id: patientId } }),
+  create: (data) => api.post('/prescriptions', data),
+  delete: (id) => api.delete(`/prescriptions/${id}`),
+}
+
 export const adminApi = {
   bindDoctorToClinic: (clinicId, doctorId) =>
     api.post(`/clinics/${clinicId}/doctors/${doctorId}/bind`),
-  // Получить всех пользователей через health + users из БД — используем /chats как proxy
-  // Реального GET /users нет в API, поэтому получаем через chats
   getUsers: () => api.get('/chats'),
 }
 
