@@ -13,9 +13,7 @@ const AVATAR_COLORS = [
 
 function Avatar({ name, id }) {
   const color = AVATAR_COLORS[(id ?? 0) % AVATAR_COLORS.length]
-  const initials = name
-    ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?'
+  const initials = name ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() : '?'
   return (
     <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold ${color}`}>
       {initials}
@@ -23,46 +21,20 @@ function Avatar({ name, id }) {
   )
 }
 
-function IconButton({ onClick, title, children }) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
-    >
-      {children}
-    </button>
-  )
-}
-
-const IconChat = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 4.5C2 3.12 3.12 2 4.5 2h7C12.88 2 14 3.12 14 4.5v5c0 1.38-1.12 2.5-2.5 2.5H8l-3 2v-2H4.5C3.12 12 2 10.88 2 9.5v-5z"/>
-  </svg>
-)
-
-const IconPrescription = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="1.5" width="10" height="13" rx="1.5"/>
-    <path d="M6 5h4M6 8h4M6 11h2"/>
-  </svg>
-)
-
-function DoctorRow({ chat, onChat, onPrescriptions }) {
+function DoctorRow({ chat, onChat }) {
   const name = chat.other_name || chat.other_login || `Врач #${chat.doctor_id}`
   return (
-    <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors group">
+    <button
+      onClick={() => onChat(chat)}
+      className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
+    >
       <Avatar name={name} id={chat.doctor_id} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-800 truncate">{name}</p>
-        <p className="text-xs text-gray-400 truncate mt-0.5">{chat.last_message || 'Нет сообщений'}</p>
-      </div>
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <IconButton onClick={() => onChat(chat)} title="Открыть чат"><IconChat /></IconButton>
-        <IconButton onClick={() => onPrescriptions(chat)} title="Назначения"><IconPrescription /></IconButton>
+        <p className="text-xs text-gray-400 truncate mt-0.5">Нет сообщений</p>
       </div>
       <svg className="text-gray-300 flex-shrink-0" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 4l4 4-4 4"/></svg>
-    </div>
+    </button>
   )
 }
 
@@ -95,20 +67,18 @@ export default function PatientDashboard() {
     try {
       const bindRes = await patientApi.bindDoctor(bindCode.trim().toUpperCase())
       const doctorId = bindRes.data?.doctor_id ?? bindRes.data?.doctorId ?? null
-
-      // POST /chats идемпотентный — вернёт существующий или создаст новый
       if (doctorId) {
         try { await chatApi.createChat(doctorId) } catch (e) {
           if (e?.response?.status !== 409) console.warn(e)
         }
       }
-
       setBound(true)
       setBindCode('')
       await new Promise((r) => setTimeout(r, 300))
       await loadChats()
     } catch (err) {
-      const raw = JSON.stringify(err?.response?.data ?? err?.message ?? String(err), null, 2); setBindError('[HTTP ' + (err?.response?.status ?? 'network') + '] ' + raw)
+      const raw = JSON.stringify(err?.response?.data ?? err?.message ?? String(err), null, 2)
+      setBindError('[HTTP ' + (err?.response?.status ?? 'network') + '] ' + raw)
     } finally {
       setBinding(false)
     }
@@ -180,7 +150,6 @@ export default function PatientDashboard() {
               key={chat.id}
               chat={chat}
               onChat={(c) => navigate('/patient/chat', { state: { chatId: c.id, chat: c } })}
-              onPrescriptions={(c) => navigate('/patient/prescriptions', { state: { chat: c } })}
             />
           ))}
         </div>
