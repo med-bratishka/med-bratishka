@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { chatApi, doctorApi } from '../../api/index'
+import { useChatsWithMeta } from '../../hooks/useChatsWithMeta'
 
 const AVATAR_COLORS = [
   'bg-blue-100 text-blue-600',
@@ -13,9 +14,7 @@ const AVATAR_COLORS = [
 
 function Avatar({ name, id }) {
   const color = AVATAR_COLORS[(id ?? 0) % AVATAR_COLORS.length]
-  const initials = name
-    ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?'
+  const initials = name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?'
   return (
     <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold ${color}`}>
       {initials}
@@ -25,11 +24,8 @@ function Avatar({ name, id }) {
 
 function IconButton({ onClick, title, children, danger }) {
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${danger ? 'text-gray-400 hover:text-red-500 hover:bg-red-50' : 'text-gray-400 hover:text-brand-600 hover:bg-brand-50'}`}
-    >
+    <button onClick={onClick} title={title}
+      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${danger ? 'text-gray-400 hover:text-red-500 hover:bg-red-50' : 'text-gray-400 hover:text-brand-600 hover:bg-brand-50'}`}>
       {children}
     </button>
   )
@@ -41,14 +37,6 @@ const IconChat = () => (
   </svg>
 )
 
-const IconPrescription = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="1.5" width="10" height="13" rx="1.5"/>
-    <path d="M6 5h4M6 8h4M6 11h2"/>
-    <path d="M9.5 11.5l2 2M11.5 11.5l-2 2"/>
-  </svg>
-)
-
 const IconUnlink = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6.5 9.5l-2 2a2.121 2.121 0 000 3 2.121 2.121 0 003 0l2-2"/>
@@ -57,18 +45,23 @@ const IconUnlink = () => (
   </svg>
 )
 
-function PatientRow({ chat, onChat, onPrescriptions, onUnlink }) {
+function PatientRow({ chat, unread, lastMsg, onChat, onUnlink }) {
   const name = chat.other_name || chat.other_login || `Пациент #${chat.patient_id}`
+  const hasUnread = unread > 0
   return (
     <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors group">
       <Avatar name={name} id={chat.patient_id} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{name}</p>
-        <p className="text-xs text-gray-400 truncate mt-0.5">{chat.last_message || 'Нет сообщений'}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-gray-800 truncate">{name}</p>
+          {hasUnread && <span className="flex-shrink-0 w-2 h-2 rounded-full bg-brand-400" />}
+        </div>
+        <p className={`text-xs truncate mt-0.5 ${hasUnread ? 'text-brand-400 font-medium' : 'text-gray-400'}`}>
+          {hasUnread ? `Новое сообщение: ${lastMsg}` : (lastMsg || 'Нет сообщений')}
+        </p>
       </div>
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <IconButton onClick={() => onChat(chat)} title="Открыть чат"><IconChat /></IconButton>
-        <IconButton onClick={() => onPrescriptions(chat)} title="Назначения"><IconPrescription /></IconButton>
         <IconButton onClick={() => onUnlink(chat)} title="Отвязать пациента" danger><IconUnlink /></IconButton>
       </div>
       <svg className="text-gray-300 flex-shrink-0" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 4l4 4-4 4"/></svg>
@@ -77,21 +70,14 @@ function PatientRow({ chat, onChat, onPrescriptions, onUnlink }) {
 }
 
 export default function DoctorDashboard() {
-  const [chats, setChats] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [unlinking, setUnlinking] = useState(null)
   const navigate = useNavigate()
+  const { chats, meta, loading, reload, markChatAsRead } = useChatsWithMeta(10000)
+  const [unlinking, setUnlinking] = useState(null)
 
-  useEffect(() => {
-    chatApi.getChats()
-      .then((res) => {
-        const list = res.data?.items ?? res.data?.chats ?? res.data
-        setChats(Array.isArray(list) ? list : [])
-      })
-      .catch((err) => setError(err?.response?.data?.message || 'Не удалось загрузить данные'))
-      .finally(() => setLoading(false))
-  }, [])
+  const handleChat = (chat) => {
+    markChatAsRead(chat.id)
+    navigate('/doctor/chat', { state: { chatId: chat.id, chat } })
+  }
 
   const handleUnlink = async (chat) => {
     const name = chat.other_name || chat.other_login || `Пациент #${chat.patient_id}`
@@ -100,7 +86,7 @@ export default function DoctorDashboard() {
     try {
       await chatApi.closeChat(chat.id)
       await doctorApi.unlinkPatient(chat.patient_id)
-      setChats((prev) => prev.filter((c) => c.id !== chat.id))
+      reload()
     } catch (err) {
       alert(err?.response?.data?.message || 'Не удалось отвязать пациента')
     } finally {
@@ -108,14 +94,14 @@ export default function DoctorDashboard() {
     }
   }
 
+  const chatsWithUnread = Object.values(meta).filter(m => m.unread > 0).length
+
   return (
     <div className="p-6 max-w-3xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-lg font-medium text-gray-800">Мои пациенты</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            {loading ? 'Загрузка...' : `${chats.length} на курировании`}
-          </p>
+          <p className="text-sm text-gray-400 mt-0.5">{loading ? 'Загрузка...' : `${chats.length} на курировании`}</p>
         </div>
         <button onClick={() => navigate('/doctor/invite')} className="btn-primary flex items-center gap-1.5">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M8 2v12M2 8h12"/></svg>
@@ -127,7 +113,7 @@ export default function DoctorDashboard() {
         {[
           { label: 'Всего пациентов', value: loading ? '—' : chats.length },
           { label: 'Активных чатов', value: loading ? '—' : chats.length },
-          { label: 'Новых сообщений', value: 0 },
+          { label: 'Новых сообщений', value: loading ? '—' : chatsWithUnread },
         ].map((m) => (
           <div key={m.label} className="bg-white rounded-xl border border-gray-100 p-4">
             <p className="text-xs text-gray-400 mb-1">{m.label}</p>
@@ -138,7 +124,7 @@ export default function DoctorDashboard() {
 
       {loading ? (
         <div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50 overflow-hidden">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3].map(i => (
             <div key={i} className="flex items-center gap-3 px-5 py-3.5">
               <div className="w-10 h-10 rounded-full bg-gray-100 animate-pulse flex-shrink-0" />
               <div className="flex-1 space-y-1.5">
@@ -147,10 +133,6 @@ export default function DoctorDashboard() {
               </div>
             </div>
           ))}
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-100 rounded-xl p-6 text-center">
-          <p className="text-sm text-red-500">{error}</p>
         </div>
       ) : chats.length === 0 ? (
         <div className="bg-white border border-gray-100 rounded-xl p-10 flex flex-col items-center text-center">
@@ -164,12 +146,13 @@ export default function DoctorDashboard() {
         </div>
       ) : (
         <div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50 overflow-hidden">
-          {chats.map((chat) => (
+          {chats.map(chat => (
             <PatientRow
               key={chat.id}
               chat={chat}
-              onChat={(c) => navigate('/doctor/chat', { state: { chatId: c.id, chat: c } })}
-              onPrescriptions={(c) => navigate('/doctor/prescriptions', { state: { chat: c } })}
+              unread={meta[chat.id]?.unread ?? 0}
+              lastMsg={meta[chat.id]?.lastMsg ?? ''}
+              onChat={handleChat}
               onUnlink={handleUnlink}
             />
           ))}

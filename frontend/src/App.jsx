@@ -7,8 +7,8 @@ import PatientAuthPage from './pages/PatientAuthPage'
 
 import DoctorDashboard from './pages/doctor/DoctorDashboard'
 import ChatPage from './pages/doctor/ChatPage'
-import MedicationsPage from './pages/doctor/MedicationsPage'
 import InvitePage from './pages/doctor/InvitePage'
+import MessagesPage from './pages/doctor/MessagesPage'
 
 import PatientDashboard from './pages/patient/PatientDashboard'
 import PatientChatPage from './pages/patient/PatientChatPage'
@@ -37,8 +37,8 @@ export default function App() {
               <Route element={<AppLayout requiredRole="doctor" />}>
                 <Route path="/doctor" element={<DoctorDashboard />} />
                 <Route path="/doctor/chat" element={<ChatPage />} />
-                <Route path="/doctor/medications" element={<MedicationsPage />} />
                 <Route path="/doctor/invite" element={<InvitePage />} />
+                <Route path="/doctor/messages" element={<MessagesPage />} />
               </Route>
 
               <Route element={<AppLayout requiredRole="admin" />}>
