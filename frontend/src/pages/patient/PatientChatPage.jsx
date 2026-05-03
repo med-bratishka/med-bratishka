@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { chatApi } from '../../api/index'
+import { useChatsWithMeta } from '../../hooks/useChatsWithMeta'
 import { ChatView } from '../../components/chat/ChatView'
 
 const AVATAR_COLORS = [
@@ -11,21 +11,6 @@ const AVATAR_COLORS = [
   ['#ffe4e6', '#e11d48'],
   ['#cffafe', '#0891b2'],
 ]
-
-const getLastSeen = (chatId) => parseInt(localStorage.getItem(`seen_${chatId}`) || '0', 10)
-
-const formatTime = (ts) => {
-  if (!ts) return ''
-  const ms = ts > 1e10 ? ts : ts * 1000
-  const d = new Date(ms)
-  const now = new Date()
-  if (d.toDateString() === now.toDateString())
-    return d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })
-  const yesterday = new Date(now)
-  yesterday.setDate(now.getDate() - 1)
-  if (d.toDateString() === yesterday.toDateString()) return 'вчера'
-  return d.toLocaleDateString('ru', { day: 'numeric', month: 'short' })
-}
 
 function Avatar({ name, id }) {
   const [bg, fg] = AVATAR_COLORS[(id ?? 0) % AVATAR_COLORS.length]
@@ -38,45 +23,26 @@ function Avatar({ name, id }) {
   )
 }
 
+function formatTime(ts) {
+  if (!ts) return ''
+  const ms = ts > 1e10 ? ts : ts * 1000
+  const d = new Date(ms)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'вчера'
+  return d.toLocaleDateString('ru', { day: 'numeric', month: 'short' })
+}
+
 function ChatList({ onOpen }) {
-  const [chats, setChats] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [meta, setMeta] = useState({})
+  const { chats, meta, loading, markChatAsRead } = useChatsWithMeta(8000)
 
-  const load = useCallback(async () => {
-    try {
-      const res = await chatApi.getChats()
-      const arr = res.data?.items ?? res.data?.chats ?? res.data
-      const list = Array.isArray(arr) ? arr : []
-      const m = {}
-      await Promise.all(list.map(async (chat) => {
-        try {
-          const r = await chatApi.getMessages(chat.id)
-          const msgs = r.data?.items ?? r.data?.messages ?? r.data ?? []
-          if (!Array.isArray(msgs) || msgs.length === 0) {
-            m[chat.id] = { unread: 0, lastMsg: '', lastTs: chat.updated_at ?? 0 }
-            return
-          }
-          const last = msgs[msgs.length - 1]
-          m[chat.id] = {
-            unread: msgs.filter(msg => msg.id > getLastSeen(chat.id)).length,
-            lastMsg: last.content || '',
-            lastTs: last.created_at ?? chat.updated_at ?? 0,
-          }
-        } catch { m[chat.id] = { unread: 0, lastMsg: '', lastTs: 0 } }
-      }))
-      list.sort((a, b) => (m[b.id]?.lastTs ?? 0) - (m[a.id]?.lastTs ?? 0))
-      setChats(list)
-      setMeta(m)
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
-  }, [])
-
-  useEffect(() => { load() }, [])
-  useEffect(() => {
-    const t = setInterval(load, 8000)
-    return () => clearInterval(t)
-  }, [load])
+  const open = (chat) => {
+    markChatAsRead(chat.id)
+    onOpen(chat)
+  }
 
   return (
     <div className="flex flex-col h-screen bg-white">
@@ -113,22 +79,24 @@ function ChatList({ onOpen }) {
             const name = chat.other_name || chat.other_login || `Врач #${chat.doctor_id}`
             const hasUnread = m.unread > 0
             return (
-              <button key={chat.id} onClick={() => onOpen(chat)}
+              <button key={chat.id} onClick={() => open(chat)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left border-b border-gray-50">
-                <Avatar name={name} id={chat.doctor_id} />
+                <div className="relative flex-shrink-0">
+                  <Avatar name={name} id={chat.doctor_id} />
+                  {hasUnread && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-brand-400 text-white text-[10px] font-medium flex items-center justify-center px-1">
+                      {m.unread > 99 ? '99+' : m.unread}
+                    </span>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between mb-0.5">
                     <p className={`text-sm truncate ${hasUnread ? 'font-semibold text-gray-900' : 'font-medium text-gray-800'}`}>{name}</p>
                     <p className={`text-xs flex-shrink-0 ml-3 ${hasUnread ? 'text-brand-400 font-medium' : 'text-gray-400'}`}>{formatTime(m.lastTs)}</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <p className={`text-xs truncate ${hasUnread ? 'text-gray-700' : 'text-gray-400'}`}>{m.lastMsg || 'Нет сообщений'}</p>
-                    {hasUnread && (
-                      <span className="ml-2 flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-brand-400 text-white text-[10px] font-medium flex items-center justify-center px-1">
-                        {m.unread > 99 ? '99+' : m.unread}
-                      </span>
-                    )}
-                  </div>
+                  <p className={`text-xs truncate ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
+                    {m.lastMsg || 'Нет сообщений'}
+                  </p>
                 </div>
               </button>
             )
@@ -151,21 +119,12 @@ export default function PatientChatPage() {
     const doctorName = activeChat.other_name || activeChat.other_login || `Врач #${activeChat.doctor_id}`
     return (
       <div className="h-screen flex flex-col">
-        {/* Кнопка назад */}
-        <div className="absolute top-4 left-60 z-10">
-          <button
-            onClick={() => setActiveChat(null)}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M10 4L6 8l4 4"/></svg>
-            Все чаты
-          </button>
-        </div>
         <ChatView
           chatId={activeChat.id}
           chat={activeChat}
           otherName={doctorName}
           otherSub="Ваш лечащий врач"
+          onBack={() => setActiveChat(null)}
         />
       </div>
     )
