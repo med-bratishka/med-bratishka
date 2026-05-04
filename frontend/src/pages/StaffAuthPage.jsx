@@ -4,8 +4,20 @@ import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/index'
 
 const STAFF_ROLES = [
-  { value: 'doctor', label: 'Врач' },
-  { value: 'admin', label: 'Администратор' },
+  { value: 'doctor', label: 'Врач', icon: (
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="1" width="10" height="14" rx="1.5"/>
+          <path d="M6 5h4M6 8h4M6 11h2"/>
+        </svg>
+    )},
+  { value: 'admin', label: 'Администратор', icon: (
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+    )},
 ]
 
 export default function StaffAuthPage() {
@@ -19,18 +31,55 @@ export default function StaffAuthPage() {
     phone: '',
   })
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const { login, authError, setAuthError } = useAuth()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    setForm((prev) => ({ ...prev, [name]: value }))
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({ ...prev, [name]: null }))
+    }
     setAuthError(null)
   }
 
+  const validateForm = () => {
+    const errors = {}
+
+    if (!form.email.trim()) {
+      errors.email = 'Введите email'
+    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+      errors.email = 'Некорректный формат email'
+    }
+
+    if (!form.password) {
+      errors.password = 'Введите пароль'
+    } else if (mode === 'register' && form.password.length < 8) {
+      errors.password = 'Пароль должен быть не менее 8 символов'
+    }
+
+    if (mode === 'register') {
+      if (!form.firstName.trim()) errors.firstName = 'Введите имя'
+      if (!form.lastName.trim()) errors.lastName = 'Введите фамилию'
+      if (!form.phone.trim()) {
+        errors.phone = 'Введите телефон'
+      } else if (!/^\+?[\d\s\-\(\)]{10,}$/.test(form.phone)) {
+        errors.phone = 'Некорректный формат телефона'
+      }
+    }
+
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const handleSubmit = async () => {
+    if (!validateForm()) return
+
     setLoading(true)
     setAuthError(null)
+    setFieldErrors({})
 
     try {
       let res
@@ -38,16 +87,6 @@ export default function StaffAuthPage() {
       if (mode === 'login') {
         res = await authApi.login(form.email, form.password)
       } else {
-        if (!form.firstName || !form.lastName || !form.phone) {
-          setAuthError('Заполните все поля')
-          setLoading(false)
-          return
-        }
-        if (form.password.length < 8) {
-          setAuthError('Пароль должен быть не менее 8 символов')
-          setLoading(false)
-          return
-        }
         res = await authApi.register({
           login: form.email,
           email: form.email,
@@ -62,10 +101,9 @@ export default function StaffAuthPage() {
 
       const { access_token, refresh_token, user } = res.data
 
-
       login({
         id: user.id,
-        name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.login || user.email,
+        name: [form.firstName, form.lastName].filter(Boolean).join(' ') || user.login || user.email,
         role: user.role,
         token: access_token.token,
         refreshToken: refresh_token.token,
@@ -74,24 +112,47 @@ export default function StaffAuthPage() {
       navigate(user.role === 'admin' ? '/admin' : '/doctor')
     } catch (err) {
       const data = err?.response?.data
-      // go-swagger validation errors come as array in 'errors' or nested message
+      const statusCode = err?.response?.status
       const rawMsg = data?.message || data?.error || ''
-      let message = rawMsg
 
-      if (rawMsg === 'validation failed' || rawMsg === 'invalid request body') {
-        // Try to extract field-level errors
-        const details = data?.details
-        if (details && typeof details === 'string') {
-          message = details
-        } else if (data?.errors && Array.isArray(data.errors)) {
-          message = data.errors.map(e => e.message || e).join('; ')
-        } else if (rawMsg === 'validation failed') {
-          message = 'Ошибка валидации: проверьте все поля (пароль — минимум 8 символов)'
+      if (statusCode === 409 || rawMsg?.toLowerCase?.().includes('already') || rawMsg?.toLowerCase?.().includes('exists')) {
+        if (rawMsg?.toLowerCase?.().includes('email') || data?.field === 'email') {
+          setFieldErrors(prev => ({ ...prev, email: 'Этот email уже зарегистрирован' }))
+        } else if (rawMsg?.toLowerCase?.().includes('phone') || data?.field === 'phone') {
+          setFieldErrors(prev => ({ ...prev, phone: 'Этот номер уже используется' }))
+        } else {
+          setAuthError('Пользователь с такими данными уже существует')
         }
       }
-
-      if (!message) message = 'Неверный email или пароль'
-      setAuthError(message)
+      else if (rawMsg === 'validation failed' || rawMsg === 'invalid request body') {
+        const details = data?.details
+        if (details && typeof details === 'string') {
+          setAuthError(details)
+        } else if (data?.errors && Array.isArray(data.errors)) {
+          const fieldMap = {
+            'email': 'email', 'login': 'email', 'phone': 'phone',
+            'password': 'password', 'first_name': 'firstName', 'last_name': 'lastName'
+          }
+          const newFieldErrors = {}
+          data.errors.forEach(e => {
+            const fieldName = fieldMap[e.field]
+            if (fieldName) newFieldErrors[fieldName] = e.message || 'Ошибка в поле'
+          })
+          if (Object.keys(newFieldErrors).length) {
+            setFieldErrors(newFieldErrors)
+          } else {
+            setAuthError('Ошибка валидации: проверьте все поля')
+          }
+        } else {
+          setAuthError('Ошибка валидации: проверьте все поля (пароль — минимум 8 символов)')
+        }
+      }
+      else if (statusCode === 401 && mode === 'login') {
+        setAuthError('Неверный email или пароль')
+      }
+      else {
+        setAuthError(rawMsg || 'Произошла ошибка. Попробуйте ещё раз')
+      }
     } finally {
       setLoading(false)
     }
@@ -102,157 +163,197 @@ export default function StaffAuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-4 relative overflow-hidden">
 
-        <div className="flex items-center gap-2 mb-6 justify-center">
-          <div className="w-8 h-8 bg-brand-400 rounded-lg flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 2v12M2 8h12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <span className="text-xl font-medium text-gray-800">МедБратишка</span>
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-600/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-800/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl"></div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-7 pt-6 pb-4 border-b border-gray-100">
-            <h1 className="text-base font-semibold text-gray-800">Вход для персонала</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Портал врачей и администраторов</p>
+        <div className="w-full max-w-lg relative z-10">
+
+          <div className="flex items-center gap-3 mb-8 justify-center">
+            <div className="w-14 h-14 bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-amber-900/40 border border-amber-400/30">
+              <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2v12M2 8h12" stroke="black" strokeWidth="2.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <span className="text-3xl font-bold text-white tracking-tight block">MedBratishka</span>
+              <p className="text-xs text-amber-500/90 text-center font-medium">Портал персонала</p>
+            </div>
           </div>
 
-          <div className="p-7 flex flex-col gap-4">
+          <div className="luxury-card border border-amber-600/20 shadow-2xl shadow-black/50">
+            <div className="px-8 pt-8 pb-6 border-b border-amber-600/20">
+              <h1 className="text-2xl font-bold text-gold mb-2">Вход для персонала</h1>
+              <p className="text-sm text-zinc-500">Портал врачей и администраторов</p>
+            </div>
 
-            {mode === 'register' && (
+            <div className="p-8 flex flex-col gap-4">
+
+              {mode === 'register' && (
+                  <div className="flex flex-col gap-3">
+                    <label className="text-xs text-zinc-400 font-medium">Роль</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {STAFF_ROLES.map((r) => (
+                          <button
+                              key={r.value}
+                              type="button"
+                              onClick={() => { setRole(r.value); setAuthError(null); setFieldErrors({}) }}
+                              className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold border-2 transition-all duration-300 ${
+                                  role === r.value
+                                      ? 'bg-gradient-to-r from-amber-600/30 to-amber-600/10 text-amber-400 border-amber-600/50 shadow-lg shadow-amber-900/20'
+                                      : 'bg-zinc-900/50 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-zinc-300'
+                              }`}
+                          >
+                            {r.icon}
+                            {r.label}
+                          </button>
+                      ))}
+                    </div>
+                  </div>
+              )}
+
+              {mode === 'register' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs text-zinc-400 font-medium">Имя *</label>
+                        <input
+                            className={`input-field ${fieldErrors.firstName ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                            name="firstName"
+                            placeholder="Иван"
+                            value={form.firstName}
+                            onChange={handleChange}
+                            onKeyDown={handleKeyDown}
+                        />
+                        {fieldErrors.firstName && <p className="text-xs text-red-400">{fieldErrors.firstName}</p>}
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs text-zinc-400 font-medium">Фамилия *</label>
+                        <input
+                            className={`input-field ${fieldErrors.lastName ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                            name="lastName"
+                            placeholder="Иванов"
+                            value={form.lastName}
+                            onChange={handleChange}
+                            onKeyDown={handleKeyDown}
+                        />
+                        {fieldErrors.lastName && <p className="text-xs text-red-400">{fieldErrors.lastName}</p>}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs text-zinc-400 font-medium">Телефон *</label>
+                      <input
+                          className={`input-field ${fieldErrors.phone ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                          name="phone"
+                          type="tel"
+                          placeholder="+79001234567"
+                          value={form.phone}
+                          onChange={handleChange}
+                          onKeyDown={handleKeyDown}
+                      />
+                      {fieldErrors.phone && <p className="text-xs text-red-400">{fieldErrors.phone}</p>}
+                    </div>
+                  </>
+              )}
+
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-gray-500">Роль</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {STAFF_ROLES.map((r) => (
-                    <button
-                      key={r.value}
-                      type="button"
-                      onClick={() => { setRole(r.value); setAuthError(null) }}
-                      className={`py-2 rounded-lg text-sm font-medium border transition-colors ${
-                        role === r.value
-                          ? 'bg-brand-50 text-brand-600 border-brand-300'
-                          : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {mode === 'register' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-gray-500">Имя</label>
-                    <input
-                      className="input-field"
-                      name="firstName"
-                      placeholder="Иван"
-                      value={form.firstName}
-                      onChange={handleChange}
-                      onKeyDown={handleKeyDown}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-gray-500">Фамилия</label>
-                    <input
-                      className="input-field"
-                      name="lastName"
-                      placeholder="Иванов"
-                      value={form.lastName}
-                      onChange={handleChange}
-                      onKeyDown={handleKeyDown}
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-gray-500">Телефон</label>
-                  <input
-                    className="input-field"
-                    name="phone"
-                    type="tel"
-                    placeholder="+79001234567"
-                    value={form.phone}
+                <label className="text-xs text-zinc-400 font-medium">Email *</label>
+                <input
+                    className={`input-field ${fieldErrors.email ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                    name="email"
+                    type="email"
+                    placeholder={role === 'doctor' ? 'doctor@clinic.ru' : 'admin@clinic.ru'}
+                    value={form.email}
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
-                  />
-                </div>
-              </>
-            )}
+                />
+                {fieldErrors.email && <p className="text-xs text-red-400">{fieldErrors.email}</p>}
+              </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-500">Email</label>
-              <input
-                className="input-field"
-                name="email"
-                type="email"
-                placeholder="doctor@clinic.ru"
-                value={form.email}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-              />
-            </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-zinc-400 font-medium">Пароль *</label>
+                <input
+                    className={`input-field ${fieldErrors.password ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                    name="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={handleChange}
+                    onKeyDown={handleKeyDown}
+                />
+                {mode === 'register' && form.password.length > 0 && form.password.length < 8 && !fieldErrors.password && (
+                    <p className="text-xs text-amber-500">Минимум 8 символов ({form.password.length}/8)</p>
+                )}
+                {fieldErrors.password && <p className="text-xs text-red-400">{fieldErrors.password}</p>}
+              </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-500">Пароль</label>
-              <input
-                className="input-field"
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-              />
-              {mode === 'register' && form.password.length > 0 && form.password.length < 8 && (
-                <p className="text-xs text-amber-500">Минимум 8 символов ({form.password.length}/8)</p>
+              {authError && (
+                  <div className="bg-red-950/30 border border-red-900/50 rounded-xl px-4 py-3">
+                    <p className="text-sm text-red-400 flex items-center gap-2">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M8 2v12M8 12l4-4-4-4"/>
+                      </svg>
+                      {authError}
+                    </p>
+                  </div>
               )}
-            </div>
 
-            {authError && (
-              <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{authError}</p>
-            )}
+              <button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="btn-primary w-full py-3 mt-2 disabled:opacity-50 disabled:cursor-not-allowed text-base font-semibold shadow-lg shadow-amber-900/30"
+              >
+                {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                  Загрузка...
+                </span>
+                ) : mode === 'login' ? `Войти как ${role === 'doctor' ? 'врач' : 'администратор'}` : 'Зарегистрироваться'}
+              </button>
 
-            <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="btn-primary w-full py-2.5 mt-1 disabled:opacity-50"
-            >
-              {loading ? 'Загрузка...' : mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-xs text-gray-400">
+              <div className="flex items-center gap-3 my-2">
+                <div className="flex-1 h-px bg-zinc-800" />
+                <span className="text-xs text-zinc-500 font-medium">
                 {mode === 'login' ? 'нет аккаунта?' : 'есть аккаунт?'}
               </span>
-              <div className="flex-1 h-px bg-gray-100" />
+                <div className="flex-1 h-px bg-zinc-800" />
+              </div>
+
+              <button
+                  onClick={() => {
+                    setMode(mode === 'login' ? 'register' : 'login')
+                    setAuthError(null)
+                    setFieldErrors({})
+                  }}
+                  className="btn-secondary w-full py-2.5 text-sm font-medium"
+              >
+                {mode === 'login' ? 'Зарегистрироваться' : 'Войти'}
+              </button>
             </div>
-
-            <button
-              onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setAuthError(null) }}
-              className="btn-secondary w-full py-2.5 text-xs"
-            >
-              {mode === 'login' ? 'Зарегистрироваться' : 'Войти'}
-            </button>
           </div>
-        </div>
 
-        <p className="text-center text-xs text-gray-400 mt-4">
-          Вы пациент?{' '}
-          <a
-            href={import.meta.env.VITE_PATIENT_APP_URL || '#'}
-            className="text-brand-500 hover:underline"
-          >
-            Перейти на портал пациентов
-          </a>
-        </p>
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <p className="text-xs text-zinc-600">Вы пациент?</p>
+            <a
+                href={import.meta.env.VITE_PATIENT_APP_URL || '#'}
+                className="text-xs text-amber-500 hover:text-amber-400 font-medium transition-colors"
+            >
+              Перейти на портал пациентов
+            </a>
+          </div>
+
+          <p className="text-center text-xs text-zinc-600 mt-4">
+            © 2026 MedBratishka. Professional medical platform
+          </p>
+        </div>
       </div>
-    </div>
   )
 }
