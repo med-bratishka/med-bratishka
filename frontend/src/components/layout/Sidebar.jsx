@@ -5,15 +5,18 @@ const DoctorNav = [
   { to: '/doctor', label: 'Пациенты', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>) },
   { to: '/doctor/messages', label: 'Сообщения', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 10c0 .6-.5 1-1 1H4l-2 2V3c0-.6.5-1 1-1h10c.6 0 1 .4 1 1v7z"/></svg>) },
   { to: '/doctor/invite', label: 'Инвайт-коды', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M13 4H3a1 1 0 00-1 1v6a1 1 0 001 1h10a1 1 0 001-1V5a1 1 0 00-1-1z"/><path d="M3 4l5 4 5-4"/></svg>) },
+  { to: '/doctor/security', label: 'Безопасность', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 1l5 2v4c0 3.2-2 5.9-5 7-3-1.1-5-3.8-5-7V3l5-2z"/><path d="M6 8l1.3 1.3L10.5 6"/></svg>) },
 ]
 
 const AdminNav = [
   { to: '/admin', label: 'Управление', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>) },
+  { to: '/admin/security', label: 'Безопасность', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 1l5 2v4c0 3.2-2 5.9-5 7-3-1.1-5-3.8-5-7V3l5-2z"/><path d="M6 8l1.3 1.3L10.5 6"/></svg>) },
 ]
 
 const PatientNav = [
   { to: '/patient', label: 'Мой врач', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="1" width="10" height="14" rx="1.5"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>) },
   { to: '/patient/chat', label: 'Чаты', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 10c0 .6-.5 1-1 1H4l-2 2V3c0-.6.5-1 1-1h10c.6 0 1 .4 1 1v7z"/></svg>) },
+  { to: '/patient/security', label: 'Безопасность', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 1l5 2v4c0 3.2-2 5.9-5 7-3-1.1-5-3.8-5-7V3l5-2z"/><path d="M6 8l1.3 1.3L10.5 6"/></svg>) },
 ]
 
 export default function Sidebar() {

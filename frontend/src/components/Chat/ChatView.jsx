@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { chatApi } from '../../api/index'
 import { useAuth } from '../../context/AuthContext'
 
-const setLastSeen = (chatId, msgId) => localStorage.setItem(`seen_${chatId}`, String(msgId))
-
 const toTime = (ts) => {
   if (!ts) return ''
   const ms = ts > 1e10 ? ts : ts * 1000
@@ -58,7 +56,7 @@ export function ChatView({ chatId, chat, otherName, otherSub, onBack }) {
             setMessages(list)
             if (list.length > 0) {
               const sortedList = [...list].sort((a, b) => (a.created_at ?? a.id ?? 0) - (b.created_at ?? b.id ?? 0))
-              setLastSeen(chatId, sortedList[sortedList.length - 1].id)
+              chatApi.markRead(chatId, sortedList[sortedList.length - 1].id).catch(console.error)
             }
           }
         })
@@ -102,7 +100,7 @@ export function ChatView({ chatId, chat, otherName, otherSub, onBack }) {
       const msg = res.data?.message || res.data
       if (msg?.id) {
         setMessages(prev => [...prev, msg])
-        setLastSeen(chatId, msg.id)
+        chatApi.markRead(chatId, msg.id).catch(console.error)
       } else {
         await loadMessages(true)
       }
