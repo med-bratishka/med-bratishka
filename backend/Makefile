@@ -10,6 +10,7 @@ DB_NAME = medbratishka
 DB_SSLMODE = disable
 SWAGGER_IMAGE = medbratishka-swagger
 SWAGGER_PORT = 8081
+SWAGGER_BIN = $(shell go env GOPATH)/bin/swagger
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 BACKEND_DIR := $(abspath $(MAKEFILE_DIR))
@@ -119,7 +120,11 @@ generate-local:
 		echo "Устанавливаю swagger..."; \
 		go install github.com/go-swagger/go-swagger/cmd/swagger@latest; \
 	fi
-	swagger generate model -f $(SWAGGER_SPEC) -t $(BACKEND_DIR)
+	@if command -v swagger >/dev/null 2>&1; then \
+		swagger generate model -f $(SWAGGER_SPEC) -t $(BACKEND_DIR); \
+	else \
+		$(SWAGGER_BIN) generate model -f $(SWAGGER_SPEC) -t $(BACKEND_DIR); \
+	fi
 	@echo "Модели успешно сгенерированы!"
 
 swagger.start:
@@ -287,4 +292,3 @@ setup:
 	@echo "  make help       - Показать все команды"
 
 .DEFAULT_GOAL := help
-

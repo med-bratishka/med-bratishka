@@ -33,6 +33,7 @@ type ChatService interface {
 	CloseChat(ctx context.Context, userCtx *domain.UserTokenContext, chatID int64) error
 	GetMyChats(ctx context.Context, userCtx *domain.UserTokenContext, limit, offset int) (*domain.PaginatedChats, error)
 	GetChatMessages(ctx context.Context, userCtx *domain.UserTokenContext, chatID int64, limit, offset int) (*domain.PaginatedChatMessages, error)
+	MarkChatRead(ctx context.Context, userCtx *domain.UserTokenContext, chatID int64, input *domain.MarkChatReadInput) error
 }
 
 type chatService struct {
@@ -174,6 +175,9 @@ func (s *chatService) SendMessage(ctx context.Context, senderCtx *domain.UserTok
 	if err != nil {
 		return nil, wrapInternal("SendMessage/SendMessageTX", err)
 	}
+	if err := s.chatRepo.CreateMessageNotificationTX(ctx, tx, chat, messageID, senderCtx.ID, contentPtr, now); err != nil {
+		return nil, wrapInternal("SendMessage/CreateMessageNotificationTX", err)
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, wrapInternal("SendMessage/Commit", err)
@@ -284,13 +288,19 @@ func (s *chatService) GetMyChats(ctx context.Context, userCtx *domain.UserTokenC
 	res := make([]domain.ChatSummary, 0, len(rows))
 	for _, row := range rows {
 		res = append(res, domain.ChatSummary{
-			ID:          row.ID,
-			DoctorID:    row.DoctorID,
-			PatientID:   row.PatientID,
-			OtherUserID: row.OtherUserID,
-			OtherLogin:  row.OtherLogin,
-			OtherName:   strings.TrimSpace(row.OtherFirstName + " " + row.OtherLastName),
-			UpdatedAt:   row.UpdatedAt,
+			ID:                row.ID,
+			DoctorID:          row.DoctorID,
+			PatientID:         row.PatientID,
+			OtherUserID:       row.OtherUserID,
+			OtherLogin:        row.OtherLogin,
+			OtherName:         strings.TrimSpace(row.OtherFirstName + " " + row.OtherLastName),
+			UpdatedAt:         row.UpdatedAt,
+			LastMessageID:     derefInt64(row.LastMessageID),
+			LastMessage:       derefStr(row.LastMessage),
+			LastMessageAt:     derefInt64(row.LastMessageAt),
+			UnreadCount:       row.UnreadCount,
+			LastReadMessageID: derefInt64(row.LastReadMessageID),
+			HasUnread:         row.UnreadCount > 0,
 		})
 	}
 
@@ -348,6 +358,48 @@ func (s *chatService) GetChatMessages(ctx context.Context, userCtx *domain.UserT
 	}
 
 	return &domain.PaginatedChatMessages{Items: res, Pagination: domain.Pagination{Limit: limit, Offset: offset, Total: total}}, nil
+}
+
+func (s *chatService) MarkChatRead(ctx context.Context, userCtx *domain.UserTokenContext, chatID int64, input *domain.MarkChatReadInput) error {
+	tx, err := s.txRepo.StartTransaction(ctx)
+	if err != nil {
+		return wrapInternal("MarkChatRead/StartTransaction", err)
+	}
+	defer tx.Rollback()
+
+	chat, err := s.chatRepo.GetChatByIDTX(ctx, tx, chatID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return newServiceError(CodeNotFound, ErrChatNotFound, "CHAT_NOT_FOUND", "chat not found")
+		}
+		return wrapInternal("MarkChatRead/GetChatByIDTX", err)
+	}
+	if err := s.ensureChatAccessTX(ctx, tx, userCtx, chat); err != nil {
+		return err
+	}
+
+	lastReadMessageID := int64(0)
+	if input != nil {
+		lastReadMessageID = input.LastReadMessageID
+	}
+	if lastReadMessageID <= 0 {
+		latestID, err := s.chatRepo.GetLatestMessageIDTX(ctx, tx, chatID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return nil
+			}
+			return wrapInternal("MarkChatRead/GetLatestMessageIDTX", err)
+		}
+		lastReadMessageID = latestID
+	}
+	now := s.timeManager.Now().UnixMilli()
+	if err := s.chatRepo.MarkChatReadTX(ctx, tx, chatID, userCtx.ID, lastReadMessageID, now); err != nil {
+		return wrapInternal("MarkChatRead/MarkChatReadTX", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return wrapInternal("MarkChatRead/Commit", err)
+	}
+	return nil
 }
 
 func (s *chatService) ensureChatAccessTX(ctx context.Context, tx transaction.Transaction, userCtx *domain.UserTokenContext, chat *repositoryModels.Chat) error {
@@ -417,6 +469,13 @@ func sanitizeFilename(name string) string {
 func derefStr(v *string) string {
 	if v == nil {
 		return ""
+	}
+	return *v
+}
+
+func derefInt64(v *int64) int64 {
+	if v == nil {
+		return 0
 	}
 	return *v
 }

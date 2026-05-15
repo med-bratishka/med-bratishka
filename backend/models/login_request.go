@@ -21,10 +21,16 @@ type LoginRequest struct {
 	// Required: true
 	AccessParameter *string `json:"access_parameter"`
 
+	// Human-readable device name for trusted-device enrollment
+	DeviceName string `json:"device_name,omitempty"`
+
 	// password
 	// Example: SecurePass123!
 	// Required: true
 	Password *string `json:"password"`
+
+	// Opaque trusted-device token returned by 2FA verification
+	TrustedDeviceToken string `json:"trusted_device_token,omitempty"`
 }
 
 // Validate validates this login request

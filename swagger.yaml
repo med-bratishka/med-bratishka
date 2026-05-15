@@ -393,6 +393,12 @@ definitions:
       password:
         type: string
         example: SecurePass123!
+      trusted_device_token:
+        type: string
+        description: Opaque trusted-device token returned by 2FA verification
+      device_name:
+        type: string
+        description: Human-readable device name for trusted-device enrollment
 
   TokenResponse:
     type: object
@@ -457,6 +463,66 @@ definitions:
         format: int64
       user:
         $ref: "#/definitions/UserResponse"
+      two_factor_required:
+        type: boolean
+        description: True when password was accepted but TOTP/recovery verification is required
+      two_factor_challenge:
+        type: string
+        description: Challenge id to submit to /auth/2fa/verify
+      two_factor_expires_at:
+        type: integer
+        format: int64
+      trusted_device_token:
+        type: string
+        description: Returned only when trust_device=true during 2FA verification
+
+  TwoFactorCodeRequest:
+    type: object
+    required:
+      - code
+    properties:
+      code:
+        type: string
+        example: "123456"
+
+  TwoFactorVerifyRequest:
+    type: object
+    required:
+      - challenge_id
+    properties:
+      challenge_id:
+        type: string
+        format: uuid
+      code:
+        type: string
+        example: "123456"
+      recovery_code:
+        type: string
+        example: ABCDE-FGHIJ-KLMNO
+      trust_device:
+        type: boolean
+        description: Remember this device and return trusted_device_token
+      remember_device:
+        type: boolean
+        description: Alias for trust_device for REST clients
+      device_name:
+        type: string
+
+  TwoFactorSetupResponse:
+    type: object
+    properties:
+      secret:
+        type: string
+      otpauth_url:
+        type: string
+
+  RecoveryCodesResponse:
+    type: object
+    properties:
+      recovery_codes:
+        type: array
+        items:
+          type: string
 
   ErrorResponse:
     type: object
@@ -604,6 +670,14 @@ definitions:
           - image
           - audio
 
+  MarkChatReadRequest:
+    type: object
+    properties:
+      last_read_message_id:
+        type: integer
+        format: int64
+        description: Optional. If omitted, latest chat message is marked as read.
+
   ChatMessageResponse:
     type: object
     properties:
@@ -646,6 +720,22 @@ definitions:
         type: string
       other_name:
         type: string
+      last_message_id:
+        type: integer
+        format: int64
+      last_message:
+        type: string
+      last_message_at:
+        type: integer
+        format: int64
+      unread_count:
+        type: integer
+        format: int64
+      last_read_message_id:
+        type: integer
+        format: int64
+      has_unread:
+        type: boolean
       updated_at:
         type: integer
         format: int64

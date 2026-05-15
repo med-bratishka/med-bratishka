@@ -3,11 +3,15 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"medbratishka/internal/repository/models"
 	"medbratishka/internal/repository/transaction"
+
+	"github.com/google/uuid"
 )
 
 type ChatRepository interface {
@@ -24,10 +28,13 @@ type ChatRepository interface {
 	GetChatMessagesTotalTX(ctx context.Context, tx transaction.Transaction, chatID int64) (int64, error)
 	GetUserChatsTX(ctx context.Context, tx transaction.Transaction, userID int64, limit, offset int) ([]models.UserChatDetail, error)
 	GetUserChatsTotalTX(ctx context.Context, tx transaction.Transaction, userID int64) (int64, error)
+	GetLatestMessageIDTX(ctx context.Context, tx transaction.Transaction, chatID int64) (int64, error)
 	DeleteMessageTX(ctx context.Context, tx transaction.Transaction, messageID, deletedAt int64) error
 	CloseChatTX(ctx context.Context, tx transaction.Transaction, chatID, closedAt int64) error
 	GetChatByIDTX(ctx context.Context, tx transaction.Transaction, chatID int64) (*models.Chat, error)
 	GetMessageByIDTX(ctx context.Context, tx transaction.Transaction, messageID int64) (*models.Message, error)
+	CreateMessageNotificationTX(ctx context.Context, tx transaction.Transaction, chat *models.Chat, messageID, senderID int64, content *string, createdAt int64) error
+	MarkChatReadTX(ctx context.Context, tx transaction.Transaction, chatID, userID, lastReadMessageID, updatedAt int64) error
 }
 
 type pgChatRepository struct {
@@ -147,11 +154,24 @@ func (r *pgChatRepository) GetUserChatsTX(ctx context.Context, tx transaction.Tr
 			u.login as login,
 			u.first_name as first_name,
 			u.last_name as last_name,
-			c.updated_at
+			c.updated_at,
+			lm.id as last_message_id,
+			COALESCE(lm.content, CASE WHEN lm.attachment_url IS NOT NULL THEN 'Вложение' ELSE '' END) as last_message,
+			lm.created_at as last_message_at,
+			COALESCE(crs.unread_count, 0) as unread_count,
+			crs.last_read_message_id as last_read_message_id
 		FROM chats c
 		JOIN users u ON (
 			CASE WHEN c.doctor_id = $1 THEN u.id = c.patient_id ELSE u.id = c.doctor_id END
 		)
+		LEFT JOIN chat_read_state crs ON crs.chat_id = c.id AND crs.user_id = $1
+		LEFT JOIN LATERAL (
+			SELECT id, content, attachment_url, created_at
+			FROM messages
+			WHERE chat_id = c.id AND deleted_at IS NULL
+			ORDER BY created_at DESC, id DESC
+			LIMIT 1
+		) lm ON TRUE
 		WHERE (c.doctor_id = $1 OR c.patient_id = $1) AND c.deleted_at IS NULL
 		ORDER BY c.updated_at DESC
 		LIMIT $2 OFFSET $3
@@ -178,6 +198,24 @@ func (r *pgChatRepository) GetUserChatsTotalTX(ctx context.Context, tx transacti
 		return 0, fmt.Errorf("query error: %w", err)
 	}
 	return total, nil
+}
+
+func (r *pgChatRepository) GetLatestMessageIDTX(ctx context.Context, tx transaction.Transaction, chatID int64) (int64, error) {
+	var id int64
+	err := tx.Txm().QueryRowContext(ctx, `
+		SELECT id
+		FROM messages
+		WHERE chat_id = $1 AND deleted_at IS NULL
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1
+	`, chatID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	if err != nil {
+		return 0, fmt.Errorf("get latest message id: %w", err)
+	}
+	return id, nil
 }
 
 func (r *pgChatRepository) DeleteMessageTX(ctx context.Context, tx transaction.Transaction, messageID, deletedAt int64) error {
@@ -245,4 +283,102 @@ func (r *pgChatRepository) GetMessageByIDTX(ctx context.Context, tx transaction.
 	}
 
 	return &message, nil
+}
+
+func (r *pgChatRepository) CreateMessageNotificationTX(ctx context.Context, tx transaction.Transaction, chat *models.Chat, messageID, senderID int64, content *string, createdAt int64) error {
+	recipientID := chat.PatientID
+	if senderID == chat.PatientID {
+		recipientID = chat.DoctorID
+	}
+	eventID := uuid.New().String()
+	idempotencyKey := fmt.Sprintf("chat.message.created:%d:%d", messageID, recipientID)
+	payload, err := json.Marshal(map[string]interface{}{
+		"chat_id":      chat.ID,
+		"message_id":   messageID,
+		"sender_id":    senderID,
+		"recipient_id": recipientID,
+		"content":      content,
+		"created_at":   createdAt,
+	})
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Txm().ExecContext(ctx, `
+		INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, idempotency_key, payload, created_at)
+		VALUES ($1, 'chat', $2, 'chat.message.created', $3, $4::jsonb, $5)
+		ON CONFLICT (idempotency_key) DO NOTHING
+	`, eventID, strconv.FormatInt(chat.ID, 10), idempotencyKey, string(payload), createdAt); err != nil {
+		return fmt.Errorf("insert outbox event: %w", err)
+	}
+
+	if _, err := tx.Txm().ExecContext(ctx, `
+		INSERT INTO chat_notification_deliveries (
+			event_id, chat_id, message_id, recipient_id, sender_id, status, created_at, idempotency_key
+		)
+		VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)
+		ON CONFLICT (idempotency_key) DO NOTHING
+	`, eventID, chat.ID, messageID, recipientID, senderID, createdAt, idempotencyKey); err != nil {
+		return fmt.Errorf("insert chat notification delivery: %w", err)
+	}
+
+	if _, err := tx.Txm().ExecContext(ctx, `
+		INSERT INTO chat_read_state (chat_id, user_id, last_read_message_id, unread_count, updated_at)
+		VALUES ($1, $2, $3, 0, $4)
+		ON CONFLICT (chat_id, user_id) DO UPDATE
+		SET last_read_message_id = GREATEST(COALESCE(chat_read_state.last_read_message_id, 0), EXCLUDED.last_read_message_id),
+		    updated_at = EXCLUDED.updated_at
+	`, chat.ID, senderID, messageID, createdAt); err != nil {
+		return fmt.Errorf("upsert sender read state: %w", err)
+	}
+
+	if _, err := tx.Txm().ExecContext(ctx, `
+		INSERT INTO chat_read_state (chat_id, user_id, unread_count, updated_at)
+		VALUES ($1, $2, 1, $3)
+		ON CONFLICT (chat_id, user_id) DO UPDATE
+		SET unread_count = chat_read_state.unread_count + 1,
+		    updated_at = EXCLUDED.updated_at
+	`, chat.ID, recipientID, createdAt); err != nil {
+		return fmt.Errorf("upsert recipient read state: %w", err)
+	}
+
+	return nil
+}
+
+func (r *pgChatRepository) MarkChatReadTX(ctx context.Context, tx transaction.Transaction, chatID, userID, lastReadMessageID, updatedAt int64) error {
+	if _, err := tx.Txm().ExecContext(ctx, `
+		INSERT INTO chat_read_state (chat_id, user_id, last_read_message_id, unread_count, updated_at)
+		VALUES ($1, $2, $3, 0, $4)
+		ON CONFLICT (chat_id, user_id) DO UPDATE
+		SET last_read_message_id = GREATEST(COALESCE(chat_read_state.last_read_message_id, 0), EXCLUDED.last_read_message_id),
+		    last_read_at = EXCLUDED.updated_at,
+		    updated_at = EXCLUDED.updated_at
+	`, chatID, userID, lastReadMessageID, updatedAt); err != nil {
+		return fmt.Errorf("mark chat read state: %w", err)
+	}
+	if _, err := tx.Txm().ExecContext(ctx, `
+		UPDATE chat_notification_deliveries d
+		SET status = 'read', read_at = $1
+		WHERE d.chat_id = $2
+		  AND d.recipient_id = $3
+		  AND d.read_at IS NULL
+		  AND d.message_id <= $4
+	`, updatedAt, chatID, userID, lastReadMessageID); err != nil {
+		return fmt.Errorf("mark deliveries read: %w", err)
+	}
+	if _, err := tx.Txm().ExecContext(ctx, `
+		UPDATE chat_read_state
+		SET unread_count = (
+			SELECT COUNT(1)
+			FROM chat_notification_deliveries d
+			WHERE d.chat_id = $1
+			  AND d.recipient_id = $2
+			  AND d.read_at IS NULL
+		),
+		    updated_at = $3
+		WHERE chat_id = $1 AND user_id = $2
+	`, chatID, userID, updatedAt); err != nil {
+		return fmt.Errorf("recalculate unread count: %w", err)
+	}
+	return nil
 }

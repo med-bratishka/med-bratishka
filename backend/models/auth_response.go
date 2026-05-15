@@ -25,6 +25,18 @@ type AuthResponse struct {
 	// server time
 	ServerTime int64 `json:"server_time,omitempty"`
 
+	// Returned only when trust_device=true during 2FA verification
+	TrustedDeviceToken string `json:"trusted_device_token,omitempty"`
+
+	// Challenge id to submit to /auth/2fa/verify
+	TwoFactorChallenge string `json:"two_factor_challenge,omitempty"`
+
+	// two factor expires at
+	TwoFactorExpiresAt int64 `json:"two_factor_expires_at,omitempty"`
+
+	// True when password was accepted but TOTP/recovery verification is required
+	TwoFactorRequired bool `json:"two_factor_required,omitempty"`
+
 	// user
 	User *UserResponse `json:"user,omitempty"`
 }

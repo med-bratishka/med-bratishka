@@ -14,7 +14,11 @@
   "auth": {
     "jwt_secret": "local-dev-secret",
     "access_ttl": "15m",
-    "refresh_ttl": "168h"
+    "refresh_ttl": "168h",
+    "two_factor_encryption_key": "local-dev-two-factor-secret",
+    "two_factor_issuer": "Medbratishka",
+    "two_factor_challenge_ttl": "5m",
+    "trusted_device_ttl": "720h"
   },
   "s3": {
     "endpoint": "minio:9000",
@@ -26,4 +30,3 @@
     "max_upload_size_mb": 15
   }
 }
-

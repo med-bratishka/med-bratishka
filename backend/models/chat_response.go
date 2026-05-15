@@ -17,8 +17,23 @@ type ChatResponse struct {
 	// doctor id
 	DoctorID int64 `json:"doctor_id,omitempty"`
 
+	// has unread
+	HasUnread bool `json:"has_unread,omitempty"`
+
 	// id
 	ID int64 `json:"id,omitempty"`
+
+	// last message
+	LastMessage string `json:"last_message,omitempty"`
+
+	// last message at
+	LastMessageAt int64 `json:"last_message_at,omitempty"`
+
+	// last message id
+	LastMessageID int64 `json:"last_message_id,omitempty"`
+
+	// last read message id
+	LastReadMessageID int64 `json:"last_read_message_id,omitempty"`
 
 	// other login
 	OtherLogin string `json:"other_login,omitempty"`
@@ -34,6 +49,9 @@ type ChatResponse struct {
 
 	// updated at
 	UpdatedAt int64 `json:"updated_at,omitempty"`
+
+	// unread count
+	UnreadCount int64 `json:"unread_count,omitempty"`
 }
 
 // Validate validates this chat response

@@ -78,8 +78,12 @@ type RegistrationInput struct {
 }
 
 type AuthenticationInput struct {
-	AccessParameter string
-	Password        string
+	AccessParameter    string
+	Password           string
+	TrustedDeviceToken string
+	DeviceName         string
+	IPAddress          string
+	UserAgent          string
 }
 
 type RefreshTokenInput struct {
@@ -109,8 +113,66 @@ type UserResponse struct {
 }
 
 type AuthResponse struct {
-	AccessToken  TokenResponse
-	RefreshToken TokenResponse
-	ServerTime   int64
-	User         UserResponse
+	AccessToken        TokenResponse
+	RefreshToken       TokenResponse
+	ServerTime         int64
+	User               UserResponse
+	TwoFactorRequired  bool
+	TwoFactorChallenge string
+	TwoFactorExpiresAt int64
+	TrustedDeviceToken string
+}
+
+type TwoFactorSettings struct {
+	UserID           int64
+	Role             Role
+	SecretCiphertext string
+	Enabled          bool
+	ConfirmedAt      *int64
+	DisabledAt       *int64
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+type AuthChallenge struct {
+	ID             string
+	UserID         int64
+	Role           Role
+	Purpose        string
+	FailedAttempts int
+	ExpiresAt      int64
+	ConsumedAt     *int64
+	CreatedAt      int64
+}
+
+type TrustedDevice struct {
+	ID            int64
+	UserID        int64
+	Role          Role
+	TokenHash     string
+	DeviceName    string
+	UserAgentHash string
+	ExpiresAt     int64
+	LastUsedAt    *int64
+	RevokedAt     *int64
+	CreatedAt     int64
+}
+
+type TwoFactorSetupResponse struct {
+	Secret     string
+	OTPAuthURL string
+}
+
+type TwoFactorVerifyInput struct {
+	ChallengeID  string
+	Code         string
+	RecoveryCode string
+	TrustDevice  bool
+	DeviceName   string
+	IPAddress    string
+	UserAgent    string
+}
+
+type RecoveryCodesResponse struct {
+	Codes []string
 }

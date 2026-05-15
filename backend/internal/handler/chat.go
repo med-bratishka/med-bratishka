@@ -38,6 +38,7 @@ func (h *ChatHandler) FillHandlers(router *mux.Router) {
 	r.HandleFunc("/{chat_id}", h.CloseChat).Methods(http.MethodDelete)
 	r.HandleFunc("/{chat_id}/messages", h.GetChatMessages).Methods(http.MethodGet)
 	r.HandleFunc("/{chat_id}/messages", h.SendMessage).Methods(http.MethodPost)
+	r.HandleFunc("/{chat_id}/read", h.MarkChatRead).Methods(http.MethodPost)
 	r.HandleFunc("/{chat_id}/messages/{message_id}", h.DeleteMessage).Methods(http.MethodDelete)
 }
 
@@ -85,13 +86,19 @@ func (h *ChatHandler) CreateChatWithDoctor(w http.ResponseWriter, r *http.Reques
 	}
 
 	writeJSON(w, http.StatusOK, &models.ChatResponse{
-		ID:          chat.ID,
-		DoctorID:    chat.DoctorID,
-		PatientID:   chat.PatientID,
-		OtherUserID: chat.OtherUserID,
-		OtherLogin:  chat.OtherLogin,
-		OtherName:   chat.OtherName,
-		UpdatedAt:   chat.UpdatedAt,
+		ID:                chat.ID,
+		DoctorID:          chat.DoctorID,
+		PatientID:         chat.PatientID,
+		OtherUserID:       chat.OtherUserID,
+		OtherLogin:        chat.OtherLogin,
+		OtherName:         chat.OtherName,
+		UpdatedAt:         chat.UpdatedAt,
+		LastMessageID:     chat.LastMessageID,
+		LastMessage:       chat.LastMessage,
+		LastMessageAt:     chat.LastMessageAt,
+		UnreadCount:       int64(chat.UnreadCount),
+		LastReadMessageID: chat.LastReadMessageID,
+		HasUnread:         chat.HasUnread,
 	})
 }
 
@@ -187,13 +194,19 @@ func (h *ChatHandler) GetMyChats(w http.ResponseWriter, r *http.Request) {
 	items := make([]*models.ChatResponse, 0, len(result.Items))
 	for _, c := range result.Items {
 		items = append(items, &models.ChatResponse{
-			ID:          c.ID,
-			DoctorID:    c.DoctorID,
-			PatientID:   c.PatientID,
-			OtherUserID: c.OtherUserID,
-			OtherLogin:  c.OtherLogin,
-			OtherName:   c.OtherName,
-			UpdatedAt:   c.UpdatedAt,
+			ID:                c.ID,
+			DoctorID:          c.DoctorID,
+			PatientID:         c.PatientID,
+			OtherUserID:       c.OtherUserID,
+			OtherLogin:        c.OtherLogin,
+			OtherName:         c.OtherName,
+			UpdatedAt:         c.UpdatedAt,
+			LastMessageID:     c.LastMessageID,
+			LastMessage:       c.LastMessage,
+			LastMessageAt:     c.LastMessageAt,
+			UnreadCount:       int64(c.UnreadCount),
+			LastReadMessageID: c.LastReadMessageID,
+			HasUnread:         c.HasUnread,
 		})
 	}
 
@@ -341,6 +354,39 @@ func (h *ChatHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, &models.SuccessResponse{Success: true, Message: "message deleted"})
+}
+
+func (h *ChatHandler) MarkChatRead(w http.ResponseWriter, r *http.Request) {
+	userCtx := GetUserFromContext(r)
+	if userCtx == nil {
+		makeErrorResponse(w, r, h.log, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized", nil)
+		return
+	}
+	chatID, err := parseChatID(r)
+	if err != nil {
+		makeErrorResponse(w, r, h.log, http.StatusBadRequest, "INVALID_CHAT_ID", "invalid chat id", err)
+		return
+	}
+	var req models.MarkChatReadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		makeErrorResponse(w, r, h.log, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", err)
+		return
+	}
+	if req.LastReadMessageID != nil {
+		if err := req.Validate(h.formats); err != nil {
+			makeErrorResponse(w, r, h.log, http.StatusBadRequest, "VALIDATION_ERROR", "validation failed", err)
+			return
+		}
+	}
+	lastReadMessageID := int64(0)
+	if req.LastReadMessageID != nil {
+		lastReadMessageID = *req.LastReadMessageID
+	}
+	if err := h.chatService.MarkChatRead(r.Context(), userCtx, chatID, &domain.MarkChatReadInput{LastReadMessageID: lastReadMessageID}); err != nil {
+		makeErrorResponse(w, r, h.log, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, &models.SuccessResponse{Success: true, Message: "chat marked as read"})
 }
 
 func parseChatID(r *http.Request) (int64, error) {
