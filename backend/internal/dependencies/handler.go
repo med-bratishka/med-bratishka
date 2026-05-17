@@ -25,6 +25,20 @@ func (d *Dependencies) ChatHandler() handler.Handler {
 	return d.chatHandler
 }
 
+func (d *Dependencies) NotificationHub() *handler.NotificationHub {
+	if d.notificationHub == nil {
+		d.notificationHub = handler.NewNotificationHub()
+	}
+	return d.notificationHub
+}
+
+func (d *Dependencies) NotificationWSHandler() handler.Handler {
+	if d.notificationWSHandler == nil {
+		d.notificationWSHandler = handler.NewNotificationWSHandler(d.AuthService(), d.NotificationHub(), d.Logger())
+	}
+	return d.notificationWSHandler
+}
+
 func (d *Dependencies) CatalogHandler() handler.Handler {
 	if d.catalogHandler == nil {
 		d.catalogHandler = handler.NewCatalogHandler(d.CatalogService(), d.Logger())

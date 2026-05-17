@@ -60,3 +60,10 @@ func (d *Dependencies) ChatRepo() repository.ChatRepository {
 	}
 	return d.chatRepo
 }
+
+func (d *Dependencies) NotificationRepo() repository.NotificationRepository {
+	if d.notificationRepo == nil {
+		d.notificationRepo = repository.NewNotificationRepository()
+	}
+	return d.notificationRepo
+}

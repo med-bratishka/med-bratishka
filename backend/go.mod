@@ -10,9 +10,9 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/lib/pq v1.12.3
 	github.com/minio/minio-go/v7 v7.0.88
 	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.48.0
@@ -44,6 +44,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
+	github.com/lib/pq v1.12.3 // indirect
 	github.com/minio/crc64nvme v1.0.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect

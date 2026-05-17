@@ -21,30 +21,34 @@ type Dependencies struct {
 
 	pgClient *db.PostgresClient
 
-	txRepo       transaction.Repository
-	usersRepo    repository.UsersRepository
-	sessionsRepo repository.SessionsRepository
-	twoFARepo    repository.TwoFactorRepository
-	clinicRepo   repository.ClinicRepository
-	doctorRepo   repository.DoctorRepository
-	patientRepo  repository.PatientRepository
-	chatRepo     repository.ChatRepository
+	txRepo           transaction.Repository
+	usersRepo        repository.UsersRepository
+	sessionsRepo     repository.SessionsRepository
+	twoFARepo        repository.TwoFactorRepository
+	clinicRepo       repository.ClinicRepository
+	doctorRepo       repository.DoctorRepository
+	patientRepo      repository.PatientRepository
+	chatRepo         repository.ChatRepository
+	notificationRepo repository.NotificationRepository
 
 	timeManager time_manager.TimeManager
 	logger      logger.Logger
 	s3Storage   s3.Storage
 
-	tokenManager    token.TokenManager
-	secretBox       *secretcrypto.SecretBox
-	hasher          service.PasswordHasher
-	authService     service.AuthService
-	bindingsService service.BindingsService
-	chatService     service.ChatService
-	catalogService  service.CatalogService
-	authHandler     handler.Handler
-	bindingsHandler handler.Handler
-	chatHandler     handler.Handler
-	catalogHandler  handler.Handler
+	tokenManager          token.TokenManager
+	secretBox             *secretcrypto.SecretBox
+	hasher                service.PasswordHasher
+	authService           service.AuthService
+	bindingsService       service.BindingsService
+	chatService           service.ChatService
+	catalogService        service.CatalogService
+	notificationWorker    *service.NotificationWorker
+	notificationHub       *handler.NotificationHub
+	authHandler           handler.Handler
+	bindingsHandler       handler.Handler
+	chatHandler           handler.Handler
+	catalogHandler        handler.Handler
+	notificationWSHandler handler.Handler
 }
 
 func New(cfg *config.Config) (*Dependencies, error) {
@@ -91,6 +95,9 @@ func New(cfg *config.Config) (*Dependencies, error) {
 }
 
 func (d *Dependencies) Close() {
+	if d.notificationWorker != nil {
+		d.notificationWorker.Stop()
+	}
 	if d.pgClient != nil {
 		_ = d.pgClient.Close()
 	}
