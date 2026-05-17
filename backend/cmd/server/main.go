@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 
 	"medbratishka/internal/dependencies"
@@ -31,6 +32,8 @@ func main() {
 	deps.CatalogHandler().FillHandlers(router)
 	deps.BindingsHandler().FillHandlers(router)
 	deps.ChatHandler().FillHandlers(router)
+	deps.NotificationWSHandler().FillHandlers(router)
+	deps.NotificationWorker().Start(context.Background())
 
 	deps.Logger().Infof("Server running on port %s", cfg.Server.Port)
 	if err := http.ListenAndServe(":"+cfg.Server.Port, router); err != nil {

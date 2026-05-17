@@ -305,6 +305,25 @@ paths:
           description: forbidden
           schema:
             $ref: "#/definitions/ErrorResponse"
+  /ws/notifications:
+    get:
+      summary: WebSocket notifications subscription
+      description: Browser clients pass access token in query parameter `token`, then send `{ "type": "subscribe", "topic": "chat_notifications" }`.
+      tags:
+        - notifications
+      parameters:
+        - name: token
+          in: query
+          required: true
+          type: string
+          description: Access JWT token
+      responses:
+        "101":
+          description: switching protocols
+        "401":
+          description: unauthorized
+          schema:
+            $ref: "#/definitions/ErrorResponse"
   /chats/{chat_id}/messages/{message_id}:
     delete:
       parameters:
@@ -786,3 +805,59 @@ definitions:
           $ref: "#/definitions/ChatMessageResponse"
       pagination:
         $ref: "#/definitions/PaginationResponse"
+
+  WebSocketSubscribeMessage:
+    type: object
+    properties:
+      type:
+        type: string
+        enum:
+          - subscribe
+          - unsubscribe
+        example: subscribe
+      topic:
+        type: string
+        enum:
+          - chat_notifications
+        example: chat_notifications
+
+  WebSocketNotificationMessage:
+    type: object
+    properties:
+      type:
+        type: string
+        enum:
+          - notification
+        example: notification
+      topic:
+        type: string
+        enum:
+          - chat_notifications
+        example: chat_notifications
+      data:
+        $ref: "#/definitions/ChatNotificationPayload"
+
+  ChatNotificationPayload:
+    type: object
+    properties:
+      type:
+        type: string
+        example: chat.message.created
+      chat_id:
+        type: integer
+        format: int64
+      message_id:
+        type: integer
+        format: int64
+      sender_id:
+        type: integer
+        format: int64
+      recipient_id:
+        type: integer
+        format: int64
+      content:
+        type: string
+        x-nullable: true
+      created_at:
+        type: integer
+        format: int64
