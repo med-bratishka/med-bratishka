@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { authApi } from '../api/index'
+import { getSecurityActionErrorMessage } from '../utils/apiErrors'
 
 export default function SecuritySettingsPage() {
   const [setup, setSetup] = useState(null)
@@ -16,11 +17,7 @@ export default function SecuritySettingsPage() {
     try {
       await fn()
     } catch (err) {
-      if (err?.response?.status === 404) {
-        setError('Запрос 2FA не дошел до backend: проверьте proxy /auth')
-      } else {
-        setError(err?.response?.data?.message || 'Не удалось выполнить действие')
-      }
+      setError(getSecurityActionErrorMessage(err))
     } finally {
       setLoading(false)
     }

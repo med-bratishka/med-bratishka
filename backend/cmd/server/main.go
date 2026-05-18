@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"medbratishka/internal/dependencies"
+	apphandler "medbratishka/internal/handler"
 	"medbratishka/pkg/config"
 	"medbratishka/pkg/logs"
 
@@ -27,6 +28,8 @@ func main() {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	})
+	router.Use(apphandler.RecoveryMiddleware(deps.Logger()))
+	apphandler.ApplyRouterErrorHandlers(router, deps.Logger())
 
 	deps.AuthHandler().FillHandlers(router)
 	deps.CatalogHandler().FillHandlers(router)

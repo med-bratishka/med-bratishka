@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/index'
 import TwoFactorChallenge from '../components/auth/TwoFactorChallenge'
+import { getLoginErrorMessage } from '../utils/apiErrors'
 import { persistAuthResponse } from '../utils/authSession'
 
 export default function PatientAuthPage() {
@@ -96,6 +97,11 @@ export default function PatientAuthPage() {
       persistAuthResponse(res.data, login, fallbackName)
       navigate('/patient')
     } catch (err) {
+      if (mode === 'login') {
+        setAuthError(getLoginErrorMessage(err))
+        return
+      }
+
       const data = err?.response?.data
       const statusCode = err?.response?.status
       const rawMsg = data?.message || data?.error || ''
@@ -131,12 +137,6 @@ export default function PatientAuthPage() {
         } else {
           setAuthError('Ошибка валидации: проверьте все поля (пароль — минимум 8 символов)')
         }
-      }
-      else if (statusCode === 401 && mode === 'login') {
-        setAuthError('Неверный email или пароль')
-      }
-      else if (statusCode === 404 && mode === 'login') {
-        setAuthError('Не найден endpoint /auth/login. Проверьте, что frontend проксирует /auth на backend и backend запущен на 8080.')
       }
       else {
         setAuthError(rawMsg || 'Произошла ошибка. Попробуйте ещё раз')
