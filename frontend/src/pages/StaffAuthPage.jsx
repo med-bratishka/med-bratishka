@@ -118,72 +118,24 @@ export default function StaffAuthPage() {
       const data = err?.response?.data
       const statusCode = err?.response?.status
       const rawMsg = data?.message || data?.error || ''
-      const normalizedMsg = rawMsg.toLowerCase()
 
-
-      if (statusCode === 401 && mode === 'login') {
-        setAuthError('Неверный email или пароль')
-        return
-      }
-
-      // Дополнительная проверка на неверные учетные данные
-      if (mode === 'login' && (
-          normalizedMsg.includes('invalid credentials') ||
-          normalizedMsg.includes('invalid password') ||
-          normalizedMsg.includes('wrong password') ||
-          normalizedMsg.includes('user not found') ||
-          normalizedMsg.includes('invalid email') ||
-          normalizedMsg.includes('неверный пароль') ||
-          normalizedMsg.includes('неверный логин') ||
-          normalizedMsg.includes('пользователь не найден')
-      )) {
-        setAuthError('Неверный email или пароль')
-        return
-      }
-
-
-      if (statusCode === 409 ||
-          normalizedMsg.includes('already exists') ||
-          normalizedMsg.includes('duplicate') ||
-          normalizedMsg.includes('already registered') ||
-          normalizedMsg.includes('already taken') ||
-          normalizedMsg.includes('уже существует') ||
-          normalizedMsg.includes('уже зарегистрирован')) {
-
-        // Проверка на дубликат email
-        if (normalizedMsg.includes('email') || data?.field === 'email') {
+      if (statusCode === 409 || rawMsg?.toLowerCase?.().includes('already') || rawMsg?.toLowerCase?.().includes('exists')) {
+        if (rawMsg?.toLowerCase?.().includes('email') || data?.field === 'email') {
           setFieldErrors(prev => ({ ...prev, email: 'Этот email уже зарегистрирован' }))
-          return
+        } else if (rawMsg?.toLowerCase?.().includes('phone') || data?.field === 'phone') {
+          setFieldErrors(prev => ({ ...prev, phone: 'Этот номер уже используется' }))
+        } else {
+          setAuthError('Пользователь с такими данными уже существует')
         }
-
-        // Проверка на дубликат телефона
-        if (normalizedMsg.includes('phone') || data?.field === 'phone') {
-          setFieldErrors(prev => ({ ...prev, phone: 'Этот номер телефона уже используется' }))
-          return
-        }
-
-        // Общая ошибка, если не удалось определить поле
-        setAuthError('Пользователь с такими данными уже существует')
-        return
       }
-
-
-      if (normalizedMsg === 'validation failed' ||
-          normalizedMsg === 'invalid request body' ||
-          statusCode === 422) {
-
+      else if (rawMsg === 'validation failed' || rawMsg === 'invalid request body') {
         const details = data?.details
-
         if (details && typeof details === 'string') {
           setAuthError(details)
         } else if (data?.errors && Array.isArray(data.errors)) {
           const fieldMap = {
-            'email': 'email',
-            'login': 'email',
-            'phone': 'phone',
-            'password': 'password',
-            'first_name': 'firstName',
-            'last_name': 'lastName'
+            'email': 'email', 'login': 'email', 'phone': 'phone',
+            'password': 'password', 'first_name': 'firstName', 'last_name': 'lastName'
           }
           const newFieldErrors = {}
           data.errors.forEach(e => {
@@ -198,11 +150,13 @@ export default function StaffAuthPage() {
         } else {
           setAuthError('Ошибка валидации: проверьте все поля (пароль — минимум 8 символов)')
         }
-        return
       }
-
-
-      setAuthError(rawMsg || 'Произошла ошибка. Попробуйте ещё раз')
+      else if (statusCode === 401 && mode === 'login') {
+        setAuthError('Неверный email или пароль')
+      }
+      else {
+        setAuthError(rawMsg || 'Произошла ошибка. Попробуйте ещё раз')
+      }
     } finally {
       setLoading(false)
     }
@@ -214,22 +168,23 @@ export default function StaffAuthPage() {
 
   if (pendingTwoFactor) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-4">
-          <div className="luxury-card border border-amber-600/20 shadow-2xl shadow-black/50 w-full max-w-md p-8">
-            <TwoFactorChallenge
-                challenge={pendingTwoFactor}
-                login={login}
-                fallbackName={form.email}
-                onBack={() => setPendingTwoFactor(null)}
-                onComplete={(user) => navigate(user.role === 'admin' ? '/admin' : '/doctor')}
-            />
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-4">
+        <div className="luxury-card border border-amber-600/20 shadow-2xl shadow-black/50 w-full max-w-md p-8">
+          <TwoFactorChallenge
+            challenge={pendingTwoFactor}
+            login={login}
+            fallbackName={form.email}
+            onBack={() => setPendingTwoFactor(null)}
+            onComplete={(user) => navigate(user.role === 'admin' ? '/admin' : '/doctor')}
+          />
         </div>
+      </div>
     )
   }
 
   return (
       <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-4 relative overflow-hidden">
+
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-600/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-800/10 rounded-full blur-3xl"></div>
@@ -237,6 +192,7 @@ export default function StaffAuthPage() {
         </div>
 
         <div className="w-full max-w-lg relative z-10">
+
           <div className="flex items-center gap-3 mb-8 justify-center">
             <div className="w-14 h-14 bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-amber-900/40 border border-amber-400/30">
               <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
@@ -256,6 +212,7 @@ export default function StaffAuthPage() {
             </div>
 
             <div className="p-8 flex flex-col gap-4">
+
               {mode === 'register' && (
                   <div className="flex flex-col gap-3">
                     <label className="text-xs text-zinc-400 font-medium">Роль</label>
