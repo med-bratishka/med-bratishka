@@ -99,30 +99,82 @@ export default function PatientAuthPage() {
       const data = err?.response?.data
       const statusCode = err?.response?.status
       const rawMsg = data?.message || data?.error || ''
+      const normalizedMsg = rawMsg.toLowerCase()
 
-      if (statusCode === 409 || rawMsg?.toLowerCase?.().includes('already') || rawMsg?.toLowerCase?.().includes('exists')) {
-        if (rawMsg?.toLowerCase?.().includes('email') || data?.field === 'email') {
-          setFieldErrors(prev => ({ ...prev, email: 'Этот email уже зарегистрирован' }))
-        } else if (rawMsg?.toLowerCase?.().includes('phone') || data?.field === 'phone') {
-          setFieldErrors(prev => ({ ...prev, phone: 'Этот номер уже используется' }))
-        } else {
-          setAuthError('Пользователь с такими данными уже существует')
-        }
+
+      if (statusCode === 401 && mode === 'login') {
+        setAuthError('Неверный email или пароль')
+        return
       }
-      else if (rawMsg === 'validation failed' || rawMsg === 'invalid request body') {
+
+      // Дополнительная проверка на неверные учетные данные
+      if (mode === 'login' && (
+          normalizedMsg.includes('invalid credentials') ||
+          normalizedMsg.includes('invalid password') ||
+          normalizedMsg.includes('wrong password') ||
+          normalizedMsg.includes('user not found') ||
+          normalizedMsg.includes('invalid email') ||
+          normalizedMsg.includes('неверный пароль') ||
+          normalizedMsg.includes('неверный логин') ||
+          normalizedMsg.includes('пользователь не найден')
+      )) {
+        setAuthError('Неверный email или пароль')
+        return
+      }
+
+
+      if (statusCode === 409 ||
+          normalizedMsg.includes('already exists') ||
+          normalizedMsg.includes('duplicate') ||
+          normalizedMsg.includes('already registered') ||
+          normalizedMsg.includes('already taken') ||
+          normalizedMsg.includes('уже существует') ||
+          normalizedMsg.includes('уже зарегистрирован')) {
+
+        // Проверка на дубликат email
+        if (normalizedMsg.includes('email') || data?.field === 'email') {
+          setFieldErrors(prev => ({ ...prev, email: 'Этот email уже зарегистрирован' }))
+          return
+        }
+
+        // Проверка на дубликат телефона
+        if (normalizedMsg.includes('phone') || data?.field === 'phone') {
+          setFieldErrors(prev => ({ ...prev, phone: 'Этот номер телефона уже используется' }))
+          return
+        }
+
+        // Общая ошибка, если не удалось определить поле
+        setAuthError('Пользователь с такими данными уже существует')
+        return
+      }
+
+
+      if (normalizedMsg === 'validation failed' ||
+          normalizedMsg === 'invalid request body' ||
+          statusCode === 422) {
+
         const details = data?.details
+
         if (details && typeof details === 'string') {
           setAuthError(details)
         } else if (data?.errors && Array.isArray(data.errors)) {
           const fieldMap = {
-            'email': 'email', 'login': 'email', 'phone': 'phone',
-            'password': 'password', 'first_name': 'firstName', 'last_name': 'lastName'
+            'email': 'email',
+            'login': 'email',
+            'phone': 'phone',
+            'password': 'password',
+            'first_name': 'firstName',
+            'last_name': 'lastName'
           }
+
           const newFieldErrors = {}
           data.errors.forEach(e => {
             const fieldName = fieldMap[e.field]
-            if (fieldName) newFieldErrors[fieldName] = e.message || 'Ошибка в поле'
+            if (fieldName) {
+              newFieldErrors[fieldName] = e.message || 'Ошибка в поле'
+            }
           })
+
           if (Object.keys(newFieldErrors).length) {
             setFieldErrors(newFieldErrors)
           } else {
@@ -131,13 +183,11 @@ export default function PatientAuthPage() {
         } else {
           setAuthError('Ошибка валидации: проверьте все поля (пароль — минимум 8 символов)')
         }
+        return
       }
-      else if (statusCode === 401 && mode === 'login') {
-        setAuthError('Неверный email или пароль')
-      }
-      else {
-        setAuthError(rawMsg || 'Произошла ошибка. Попробуйте ещё раз')
-      }
+
+
+      setAuthError(rawMsg || 'Произошла ошибка. Попробуйте ещё раз')
     } finally {
       setLoading(false)
     }
@@ -149,20 +199,19 @@ export default function PatientAuthPage() {
 
   if (pendingTwoFactor) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-4">
-        <div className="luxury-card border border-amber-600/20 shadow-2xl shadow-black/50 w-full max-w-md p-8">
-          <TwoFactorChallenge
-            challenge={pendingTwoFactor}
-            login={login}
-            fallbackName={form.email}
-            onBack={() => setPendingTwoFactor(null)}
-            onComplete={() => navigate('/patient')}
-          />
+        <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-4">
+          <div className="luxury-card border border-amber-600/20 shadow-2xl shadow-black/50 w-full max-w-md p-8">
+            <TwoFactorChallenge
+                challenge={pendingTwoFactor}
+                login={login}
+                fallbackName={form.email}
+                onBack={() => setPendingTwoFactor(null)}
+                onComplete={() => navigate('/patient')}
+            />
+          </div>
         </div>
-      </div>
     )
   }
-
 
   return (
       <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-4 relative overflow-hidden">
