@@ -21,7 +21,7 @@ type ChatRepository interface {
 		tx transaction.Transaction,
 		chatID, senderID int64,
 		content *string,
-		attachmentURL, attachmentType, attachmentMimeType *string,
+		attachmentURL, attachmentName, attachmentKey, attachmentType, attachmentMimeType *string,
 		createdAt, chatUpdatedAt int64,
 	) (int64, error)
 	GetChatMessagesTX(ctx context.Context, tx transaction.Transaction, chatID int64, limit, offset int) ([]models.ChatMessageDetail, error)
@@ -80,12 +80,12 @@ func (r *pgChatRepository) SendMessageTX(
 	tx transaction.Transaction,
 	chatID, senderID int64,
 	content *string,
-	attachmentURL, attachmentType, attachmentMimeType *string,
+	attachmentURL, attachmentName, attachmentKey, attachmentType, attachmentMimeType *string,
 	createdAt, chatUpdatedAt int64,
 ) (int64, error) {
 	query := `
-		INSERT INTO messages (chat_id, sender_id, content, attachment_url, attachment_type, attachment_mime_type, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO messages (chat_id, sender_id, content, attachment_url, attachment_name, attachment_key, attachment_type, attachment_mime_type, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id
 	`
 
@@ -97,6 +97,8 @@ func (r *pgChatRepository) SendMessageTX(
 		senderID,
 		content,
 		attachmentURL,
+		attachmentName,
+		attachmentKey,
 		attachmentType,
 		attachmentMimeType,
 		createdAt,
@@ -113,7 +115,7 @@ func (r *pgChatRepository) SendMessageTX(
 
 func (r *pgChatRepository) GetChatMessagesTX(ctx context.Context, tx transaction.Transaction, chatID int64, limit, offset int) ([]models.ChatMessageDetail, error) {
 	query := `
-		SELECT m.id, m.sender_id, u.login, u.first_name, u.last_name, m.content, m.attachment_url, m.attachment_type, m.attachment_mime_type, m.created_at
+		SELECT m.id, m.sender_id, u.login, u.first_name, u.last_name, m.content, m.attachment_url, m.attachment_name, m.attachment_type, m.attachment_mime_type, m.created_at
 		FROM messages m
 		JOIN users u ON m.sender_id = u.id
 		WHERE m.chat_id = $1 AND m.deleted_at IS NULL
@@ -268,7 +270,7 @@ func (r *pgChatRepository) GetChatByIDTX(ctx context.Context, tx transaction.Tra
 
 func (r *pgChatRepository) GetMessageByIDTX(ctx context.Context, tx transaction.Transaction, messageID int64) (*models.Message, error) {
 	query := `
-		SELECT id, chat_id, sender_id, content, attachment_url, attachment_type, attachment_mime_type, created_at, deleted_at
+		SELECT id, chat_id, sender_id, content, attachment_url, attachment_name, attachment_key, attachment_type, attachment_mime_type, created_at, deleted_at
 		FROM messages
 		WHERE id = $1
 		LIMIT 1

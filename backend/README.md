@@ -108,6 +108,7 @@ REFRESH_TTL=168h
 
 # S3
 S3_ENDPOINT=localhost:9000
+S3_PUBLIC_URL=http://localhost:9000
 S3_REGION=us-east-1
 S3_ACCESS_KEY=minioadmin
 S3_SECRET_KEY=minioadmin
@@ -123,6 +124,8 @@ S3_MAX_UPLOAD_SIZE_MB=15
 ```bash
 cd deployments
 docker compose up --build -d
+cd ..
+make migrate.up
 ```
 
 Проверка:
@@ -300,4 +303,3 @@ medbratishka/
 - [ ] Добавить rate limiting
 - [ ] Настроить CORS
 - [ ] Добавить тесты
-

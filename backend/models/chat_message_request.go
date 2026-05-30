@@ -17,17 +17,17 @@ import (
 // swagger:model ChatMessageRequest
 type ChatMessageRequest struct {
 
-	// Base64 payload of image/audio file (optional)
+	// Base64 payload of image/audio/other file (optional)
 	AttachmentBase64 string `json:"attachment_base64,omitempty"`
 
-	// MIME type (image/* or audio/*)
+	// MIME type
 	AttachmentMimeType string `json:"attachment_mime_type,omitempty"`
 
 	// Original filename for attachment
 	AttachmentName string `json:"attachment_name,omitempty"`
 
 	// attachment type
-	// Enum: ["image","audio"]
+	// Enum: ["image","audio","file"]
 	AttachmentType string `json:"attachment_type,omitempty"`
 
 	// content
@@ -57,7 +57,7 @@ var chatMessageRequestTypeAttachmentTypePropEnum []any
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["image","audio"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["image","audio","file"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -72,6 +72,9 @@ const (
 
 	// ChatMessageRequestAttachmentTypeAudio captures enum value "audio"
 	ChatMessageRequestAttachmentTypeAudio string = "audio"
+
+	// ChatMessageRequestAttachmentTypeFile captures enum value "file"
+	ChatMessageRequestAttachmentTypeFile string = "file"
 )
 
 // prop value enum

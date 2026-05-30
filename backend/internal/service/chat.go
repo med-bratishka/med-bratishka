@@ -13,6 +13,8 @@ import (
 	"medbratishka/internal/repository/transaction"
 	"medbratishka/pkg/s3"
 	"medbratishka/pkg/time_manager"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -145,9 +147,18 @@ func (s *chatService) SendMessage(ctx context.Context, senderCtx *domain.UserTok
 
 	var (
 		attachmentURL  *string
+		attachmentName *string
+		attachmentKey  *string
 		attachmentType *string
 		attachmentMime *string
+		uploadedKey    string
+		keepUpload     bool
 	)
+	defer func() {
+		if uploadedKey != "" && !keepUpload {
+			_ = s.storage.Delete(context.Background(), uploadedKey)
+		}
+	}()
 	if input.Attachment != nil {
 		if s.storage == nil {
 			return nil, newServiceError(CodeInternal, fmt.Errorf("s3 storage is not configured"), "INTERNAL_ERROR", "internal server error")
@@ -155,12 +166,15 @@ func (s *chatService) SendMessage(ctx context.Context, senderCtx *domain.UserTok
 		if err := s.validateAttachment(input.Attachment); err != nil {
 			return nil, err
 		}
-		key := fmt.Sprintf("chats/%d/%d/%d_%s", chatID, senderCtx.ID, s.timeManager.Now().UnixMilli(), sanitizeFilename(input.Attachment.FileName))
+		key := fmt.Sprintf("chats/%d/%d/%s_%s", chatID, senderCtx.ID, uuid.NewString(), sanitizeFilename(input.Attachment.FileName))
 		uploadedURL, err := s.storage.Upload(ctx, key, input.Attachment.Data, input.Attachment.MimeType)
 		if err != nil {
 			return nil, wrapInternal("SendMessage/UploadAttachment", err)
 		}
+		uploadedKey = key
 		attachmentURL = &uploadedURL
+		attachmentName = &input.Attachment.FileName
+		attachmentKey = &key
 		attachmentType = &input.Attachment.MediaType
 		attachmentMime = &input.Attachment.MimeType
 	}
@@ -171,7 +185,7 @@ func (s *chatService) SendMessage(ctx context.Context, senderCtx *domain.UserTok
 	}
 
 	now := s.timeManager.Now().UnixMilli()
-	messageID, err := s.chatRepo.SendMessageTX(ctx, tx, chatID, senderCtx.ID, contentPtr, attachmentURL, attachmentType, attachmentMime, now, now)
+	messageID, err := s.chatRepo.SendMessageTX(ctx, tx, chatID, senderCtx.ID, contentPtr, attachmentURL, attachmentName, attachmentKey, attachmentType, attachmentMime, now, now)
 	if err != nil {
 		return nil, wrapInternal("SendMessage/SendMessageTX", err)
 	}
@@ -182,10 +196,14 @@ func (s *chatService) SendMessage(ctx context.Context, senderCtx *domain.UserTok
 	if err := tx.Commit(); err != nil {
 		return nil, wrapInternal("SendMessage/Commit", err)
 	}
+	keepUpload = true
 
 	resp := &domain.ChatMessage{ID: messageID, SenderID: senderCtx.ID, Content: content, CreatedAt: now}
 	if attachmentURL != nil {
 		resp.AttachmentURL = *attachmentURL
+	}
+	if attachmentName != nil {
+		resp.AttachmentName = *attachmentName
 	}
 	if attachmentType != nil {
 		resp.AttachmentType = *attachmentType
@@ -235,6 +253,9 @@ func (s *chatService) DeleteMessage(ctx context.Context, senderCtx *domain.UserT
 
 	if err := tx.Commit(); err != nil {
 		return wrapInternal("DeleteMessage/Commit", err)
+	}
+	if s.storage != nil && msg.AttachmentKey != nil {
+		_ = s.storage.Delete(context.Background(), *msg.AttachmentKey)
 	}
 	return nil
 }
@@ -347,6 +368,7 @@ func (s *chatService) GetChatMessages(ctx context.Context, userCtx *domain.UserT
 			SenderName:         strings.TrimSpace(row.FirstName + " " + row.LastName),
 			Content:            derefStr(row.Content),
 			AttachmentURL:      derefStr(row.AttachmentURL),
+			AttachmentName:     derefStr(row.AttachmentName),
 			AttachmentType:     derefStr(row.AttachmentType),
 			AttachmentMimeType: derefStr(row.AttachmentMimeType),
 			CreatedAt:          row.CreatedAt,
@@ -444,7 +466,7 @@ func (s *chatService) validateAttachment(att *domain.AttachmentInput) error {
 	if s.maxUploadSize > 0 && int64(len(att.Data)) > s.maxUploadSize {
 		return newServiceError(CodeBadRequest, ErrAttachmentInvalid, "ATTACHMENT_TOO_LARGE", "attachment too large")
 	}
-	if att.MediaType != "image" && att.MediaType != "audio" {
+	if att.MediaType != "image" && att.MediaType != "audio" && att.MediaType != "file" {
 		return newServiceError(CodeBadRequest, ErrAttachmentInvalid, "INVALID_ATTACHMENT_TYPE", "invalid attachment type")
 	}
 	if att.MediaType == "image" && !strings.HasPrefix(att.MimeType, "image/") {

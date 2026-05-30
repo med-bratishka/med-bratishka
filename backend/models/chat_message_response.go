@@ -14,6 +14,9 @@ import (
 // swagger:model ChatMessageResponse
 type ChatMessageResponse struct {
 
+	// attachment name
+	AttachmentName string `json:"attachment_name,omitempty"`
+
 	// attachment mime type
 	AttachmentMimeType string `json:"attachment_mime_type,omitempty"`
 

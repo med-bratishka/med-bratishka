@@ -20,7 +20,7 @@ func (d *Dependencies) BindingsHandler() handler.Handler {
 
 func (d *Dependencies) ChatHandler() handler.Handler {
 	if d.chatHandler == nil {
-		d.chatHandler = handler.NewChatHandler(d.AuthService(), d.ChatService(), d.Logger())
+		d.chatHandler = handler.NewChatHandler(d.AuthService(), d.ChatService(), d.Logger(), d.cfg.S3.MaxUploadSizeMB)
 	}
 	return d.chatHandler
 }

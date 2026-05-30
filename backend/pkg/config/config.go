@@ -43,6 +43,7 @@ type AuthConfig struct {
 
 type S3Config struct {
 	Endpoint        string `json:"endpoint"`
+	PublicURL       string `json:"public_url"`
 	Region          string `json:"region"`
 	AccessKey       string `json:"access_key"`
 	SecretKey       string `json:"secret_key"`
@@ -181,6 +182,9 @@ func loadFromJSON(path string) (*Config, bool) {
 	if jc.S3.Endpoint != "" {
 		cfg.S3.Endpoint = jc.S3.Endpoint
 	}
+	if jc.S3.PublicURL != "" {
+		cfg.S3.PublicURL = jc.S3.PublicURL
+	}
 	if jc.S3.Region != "" {
 		cfg.S3.Region = jc.S3.Region
 	}
@@ -243,6 +247,7 @@ func applyEnvOverrides(cfg *Config) {
 	cfg.Auth.TrustedDeviceTTL = parseDurationEnv("TRUSTED_DEVICE_TTL", cfg.Auth.TrustedDeviceTTL)
 
 	cfg.S3.Endpoint = getEnv("S3_ENDPOINT", cfg.S3.Endpoint)
+	cfg.S3.PublicURL = getEnv("S3_PUBLIC_URL", cfg.S3.PublicURL)
 	cfg.S3.Region = getEnv("S3_REGION", cfg.S3.Region)
 	cfg.S3.AccessKey = getEnv("S3_ACCESS_KEY", cfg.S3.AccessKey)
 	cfg.S3.SecretKey = getEnv("S3_SECRET_KEY", cfg.S3.SecretKey)

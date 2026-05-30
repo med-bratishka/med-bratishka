@@ -686,12 +686,25 @@ components:
 
     ChatMessageRequest:
       type: object
-      required:
-        - content
       properties:
         content:
           type: string
           minLength: 1
+        attachment_base64:
+          type: string
+          description: Base64 payload of image/audio/other file (optional)
+        attachment_name:
+          type: string
+          description: Original filename for attachment
+        attachment_mime_type:
+          type: string
+          description: MIME type
+        attachment_type:
+          type: string
+          enum:
+            - image
+            - audio
+            - file
 
     ChatMessageResponse:
       type: object
@@ -705,6 +718,14 @@ components:
         sender_name:
           type: string
         content:
+          type: string
+        attachment_url:
+          type: string
+        attachment_name:
+          type: string
+        attachment_type:
+          type: string
+        attachment_mime_type:
           type: string
         created_at:
           type: integer
