@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background-color: #f4f6f9;
+    color: #1a1a2e;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input, textarea, button {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-400 text-brand-900 font-medium px-4 py-2 rounded-lg text-sm hover:bg-brand-600 hover:text-brand-50 transition-colors duration-150 cursor-pointer border-0;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-gray-600 font-medium px-4 py-2 rounded-lg text-sm border border-gray-200 hover:bg-gray-50 transition-colors duration-150 cursor-pointer;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 placeholder-gray-400 outline-none focus:border-brand-400 focus:bg-white transition-colors duration-150;
+  }
+
+  .card {
+    @apply bg-white rounded-xl border border-gray-100 p-5;
+  }
+
+  .status-badge {
+    @apply text-xs font-medium px-2.5 py-1 rounded-full;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
