@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/index'
 
-// Роли, доступные на staff-портале
+
 const STAFF_ROLES = [
   { value: 'doctor', label: 'Врач' },
   { value: 'admin', label: 'Администратор' },

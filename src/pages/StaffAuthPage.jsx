@@ -43,6 +43,11 @@ export default function StaffAuthPage() {
           setLoading(false)
           return
         }
+        if (form.password.length < 8) {
+          setAuthError('Пароль должен быть не менее 8 символов')
+          setLoading(false)
+          return
+        }
         res = await authApi.register({
           login: form.email,
           email: form.email,
@@ -67,10 +72,24 @@ export default function StaffAuthPage() {
 
       navigate(user.role === 'admin' ? '/admin' : '/doctor')
     } catch (err) {
-      const message =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        'Неверный email или пароль'
+      const data = err?.response?.data
+      // go-swagger validation errors come as array in 'errors' or nested message
+      const rawMsg = data?.message || data?.error || ''
+      let message = rawMsg
+
+      if (rawMsg === 'validation failed' || rawMsg === 'invalid request body') {
+        // Try to extract field-level errors
+        const details = data?.details
+        if (details && typeof details === 'string') {
+          message = details
+        } else if (data?.errors && Array.isArray(data.errors)) {
+          message = data.errors.map(e => e.message || e).join('; ')
+        } else if (rawMsg === 'validation failed') {
+          message = 'Ошибка валидации: проверьте все поля (пароль — минимум 8 символов)'
+        }
+      }
+
+      if (!message) message = 'Неверный email или пароль'
       setAuthError(message)
     } finally {
       setLoading(false)
@@ -189,6 +208,9 @@ export default function StaffAuthPage() {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
               />
+              {mode === 'register' && form.password.length > 0 && form.password.length < 8 && (
+                <p className="text-xs text-amber-500">Минимум 8 символов ({form.password.length}/8)</p>
+              )}
             </div>
 
             {authError && (

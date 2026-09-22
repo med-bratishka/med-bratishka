@@ -38,6 +38,11 @@ export default function PatientAuthPage() {
           setLoading(false)
           return
         }
+        if (form.password.length < 8) {
+          setAuthError('Пароль должен быть не менее 8 символов')
+          setLoading(false)
+          return
+        }
         res = await authApi.register({
           login: form.email,
           email: form.email,
@@ -63,10 +68,20 @@ export default function PatientAuthPage() {
 
       navigate('/patient')
     } catch (err) {
-      const message =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        'Неверный email или пароль'
+      const data = err?.response?.data
+      const rawMsg = data?.message || data?.error || ''
+      let message = rawMsg
+
+      if (rawMsg === 'validation failed' || rawMsg === 'invalid request body') {
+        const details = data?.details
+        if (details && typeof details === 'string') {
+          message = details
+        } else {
+          message = 'Ошибка валидации: проверьте все поля (пароль — минимум 8 символов)'
+        }
+      }
+
+      if (!message) message = 'Неверный email или пароль'
       setAuthError(message)
     } finally {
       setLoading(false)
@@ -166,6 +181,9 @@ export default function PatientAuthPage() {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
               />
+              {mode === 'register' && form.password.length > 0 && form.password.length < 8 && (
+                <p className="text-xs text-amber-500">Минимум 8 символов ({form.password.length}/8)</p>
+              )}
             </div>
 
             {mode === 'register' && (
