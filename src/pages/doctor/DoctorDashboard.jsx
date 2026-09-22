@@ -12,7 +12,7 @@ export default function DoctorDashboard() {
     chatApi.getChats()
       .then((res) => {
         const data = res.data
-        const list = data?.chats ?? data
+        const list = data?.items ?? data?.chats ?? data
         setChats(Array.isArray(list) ? list : [])
       })
       .catch((err) => setError(err?.response?.data?.message || 'Не удалось загрузить данные'))
