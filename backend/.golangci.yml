@@ -1,0 +1,57 @@
+run:
+  deadline: 5m
+  skip-dirs:
+    - vendor
+    - tmp
+    - bin
+    - models
+  skip-files:
+    - ".*_test.go$"
+    - ".*_mock.go$"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters:
+  enable:
+    - errcheck
+    - goimports
+    - govet
+    - ineffassign
+    - misspell
+    - unconvert
+    - unused
+    - staticcheck
+    - gosimple
+    - typecheck
+    - unparam
+    - structcheck
+    - varcheck
+  disable:
+    - depguard
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+
+  goimports:
+    local-prefixes: medbratishka
+
+  govet:
+    check-shadowing: true
+    check-unreachable: false
+
+  misspell:
+    locale: US
+    ignore-words:
+      - canceled
+
+issues:
+  exclude-use-default: false
+  exclude:
+    - "^G404:"
+    - "^G505:"
+
