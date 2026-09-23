@@ -1,35 +1,58 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { doctorApi } from '../../api/index'
 
+function generateCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const random = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  return `DR-${random}`
+}
+
 export default function InvitePage() {
-  const [activeCode, setActiveCode] = useState('')
+  const [code, setCode] = useState(null)       // null = ещё не загружен
   const [copied, setCopied] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const generateCode = async () => {
+  // При каждом входе на страницу — сразу генерируем и сохраняем новый код
+  useEffect(() => {
+    let cancelled = false
+    const registerNewCode = async () => {
+      setLoading(true)
+      setError(null)
+      const newCode = generateCode()
+      try {
+        await doctorApi.setCode(newCode)
+        if (!cancelled) setCode(newCode)
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.response?.data?.message || err?.response?.data?.error || 'Не удалось создать код')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    registerNewCode()
+    return () => { cancelled = true }
+  }, [])
+
+  const handleRotate = async () => {
     setLoading(true)
     setError(null)
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-    const random = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-    const newCode = `DR-${random}`
+    setCopied(false)
+    const newCode = generateCode()
     try {
       await doctorApi.setCode(newCode)
-      setActiveCode(newCode)
+      setCode(newCode)
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.response?.data?.error || ''
-      if (msg === 'validation failed') {
-        setError('Ошибка валидации кода на сервере')
-      } else {
-        setError(msg || 'Не удалось сохранить код')
-      }
+      setError(err?.response?.data?.message || err?.response?.data?.error || 'Не удалось обновить код')
     } finally {
       setLoading(false)
     }
   }
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(activeCode)
+  const handleCopy = () => {
+    if (!code) return
+    navigator.clipboard.writeText(code)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -38,11 +61,14 @@ export default function InvitePage() {
     <div className="p-6 max-w-xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-lg font-medium text-gray-800">Инвайт-коды</h1>
+          <h1 className="text-lg font-medium text-gray-800">Инвайт-код</h1>
           <p className="text-sm text-gray-400 mt-0.5">Подключение новых пациентов</p>
         </div>
-        <button onClick={generateCode} disabled={loading} className="btn-primary disabled:opacity-50">
-          {loading ? 'Создание...' : 'Получить код'}
+        <button onClick={handleRotate} disabled={loading} className="btn-secondary text-xs disabled:opacity-50 flex items-center gap-1.5">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M13.5 8A5.5 5.5 0 112.9 5M2.5 2v3h3"/>
+          </svg>
+          {loading ? 'Обновление...' : 'Новый код'}
         </button>
       </div>
 
@@ -52,33 +78,33 @@ export default function InvitePage() {
         </div>
       )}
 
-      {activeCode ? (
-        <div className="bg-white border border-gray-100 rounded-xl p-5">
-          <p className="text-xs text-gray-400 mb-3">Отправьте этот код пациенту</p>
+      <div className="card">
+        <p className="text-xs text-gray-400 mb-4">
+          Отправьте этот код пациенту — он одноразовый и сбрасывается при каждом входе на эту страницу
+        </p>
+
+        {loading && !code ? (
           <div className="flex items-center gap-4">
-            <div className="font-mono text-2xl font-medium tracking-widest text-brand-600 bg-brand-50 px-5 py-3 rounded-lg">
-              {activeCode}
+            <div className="h-12 w-40 bg-gray-100 rounded-lg animate-pulse" />
+            <div className="h-8 w-24 bg-gray-100 rounded-lg animate-pulse" />
+          </div>
+        ) : (
+          <div className="flex items-center gap-4">
+            <div className={`font-mono text-2xl font-medium tracking-widest px-5 py-3 rounded-lg transition-opacity ${loading ? 'opacity-40' : 'text-brand-600 bg-brand-50'}`}>
+              {code}
             </div>
-            <button onClick={copyCode} className="btn-secondary text-xs">
+            <button onClick={handleCopy} disabled={loading} className="btn-secondary text-xs disabled:opacity-50">
               {copied ? '✓ Скопировано' : 'Скопировать'}
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-3">
-            Пациент вводит этот код при регистрации или в настройках аккаунта
+        )}
+
+        <div className="mt-4 pt-4 border-t border-gray-50">
+          <p className="text-xs text-gray-400">
+            Старый код перестаёт работать сразу после генерации нового. Пациент вводит код в разделе «Мой врач».
           </p>
         </div>
-      ) : (
-        <div className="bg-white border border-gray-100 rounded-xl p-10 flex flex-col items-center justify-center text-center">
-          <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#9ca3af" strokeWidth="1.5">
-              <rect x="2" y="4" width="12" height="9" rx="1.5"/>
-              <path d="M5 4V3a3 3 0 016 0v1"/>
-            </svg>
-          </div>
-          <p className="text-sm font-medium text-gray-600 mb-1">Нет активного кода</p>
-          <p className="text-xs text-gray-400">Нажмите «Получить код» чтобы сгенерировать инвайт</p>
-        </div>
-      )}
+      </div>
     </div>
   )
 }
