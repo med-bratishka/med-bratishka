@@ -20,6 +20,8 @@ type DoctorRepository interface {
 	UpsertDoctorCodeTX(ctx context.Context, tx transaction.Transaction, userID int64, doctorCode string, createdAt, updatedAt int64) error
 	FindDoctorIDByCodeTX(ctx context.Context, tx transaction.Transaction, doctorCode string) (int64, error)
 	HasActiveClinicMembershipTX(ctx context.Context, tx transaction.Transaction, doctorID int64) (bool, error)
+	GetDoctorByIDTX(ctx context.Context, tx transaction.Transaction, doctorID int64) (*models.DoctorWithProfile, error)
+	GetDoctorsTX(ctx context.Context, tx transaction.Transaction) ([]models.DoctorWithProfile, error)
 }
 
 type pgDoctorRepository struct {
@@ -160,4 +162,49 @@ func (r *pgDoctorRepository) HasActiveClinicMembershipTX(ctx context.Context, tx
 	}
 
 	return exists, nil
+}
+
+func (r *pgDoctorRepository) GetDoctorByIDTX(ctx context.Context, tx transaction.Transaction, doctorID int64) (*models.DoctorWithProfile, error) {
+	query := `
+		SELECT
+			u.id, u.login, u.email, u.phone, u.is_verified,
+			u.first_name, u.last_name, u.middle_name,
+			dp.specialization, dp.license_number, dp.bio, dp.doctor_code,
+			u.created_at, u.updated_at
+		FROM users u
+		LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+		WHERE u.id = $1 AND u.role = 'doctor' AND u.deleted_at IS NULL
+	`
+
+	var doctor models.DoctorWithProfile
+	err := tx.Txm().GetContext(ctx, &doctor, query, doctorID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	return &doctor, nil
+}
+
+func (r *pgDoctorRepository) GetDoctorsTX(ctx context.Context, tx transaction.Transaction) ([]models.DoctorWithProfile, error) {
+	query := `
+		SELECT
+			u.id, u.login, u.email, u.phone, u.is_verified,
+			u.first_name, u.last_name, u.middle_name,
+			dp.specialization, dp.license_number, dp.bio, dp.doctor_code,
+			u.created_at, u.updated_at
+		FROM users u
+		LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+		WHERE u.role = 'doctor' AND u.deleted_at IS NULL
+		ORDER BY u.id
+	`
+
+	var doctors []models.DoctorWithProfile
+	if err := tx.Txm().SelectContext(ctx, &doctors, query); err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	return doctors, nil
 }

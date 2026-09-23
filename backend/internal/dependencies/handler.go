@@ -24,3 +24,10 @@ func (d *Dependencies) ChatHandler() handler.Handler {
 	}
 	return d.chatHandler
 }
+
+func (d *Dependencies) CatalogHandler() handler.Handler {
+	if d.catalogHandler == nil {
+		d.catalogHandler = handler.NewCatalogHandler(d.CatalogService(), d.Logger())
+	}
+	return d.catalogHandler
+}

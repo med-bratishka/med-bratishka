@@ -28,3 +28,20 @@ type DoctorClinicWithDetails struct {
 	ClinicName    string  `db:"name"`
 	ClinicAddress *string `db:"address"`
 }
+
+type DoctorWithProfile struct {
+	ID             int64   `db:"id"`
+	Login          string  `db:"login"`
+	Email          *string `db:"email"`
+	Phone          *string `db:"phone"`
+	IsVerified     bool    `db:"is_verified"`
+	FirstName      string  `db:"first_name"`
+	LastName       string  `db:"last_name"`
+	MiddleName     *string `db:"middle_name"`
+	Specialization *string `db:"specialization"`
+	LicenseNumber  *string `db:"license_number"`
+	Bio            *string `db:"bio"`
+	DoctorCode     *string `db:"doctor_code"`
+	CreatedAt      int64   `db:"created_at"`
+	UpdatedAt      int64   `db:"updated_at"`
+}

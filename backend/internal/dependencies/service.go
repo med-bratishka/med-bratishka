@@ -63,3 +63,14 @@ func (d *Dependencies) ChatService() service.ChatService {
 	}
 	return d.chatService
 }
+
+func (d *Dependencies) CatalogService() service.CatalogService {
+	if d.catalogService == nil {
+		d.catalogService = service.NewCatalogService(
+			d.TxRepo(),
+			d.ClinicRepo(),
+			d.DoctorRepo(),
+		)
+	}
+	return d.catalogService
+}
