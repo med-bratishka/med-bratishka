@@ -200,8 +200,8 @@ func (h *ChatHandler) GetMyChats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, &models.PaginatedChatsResponse{
 		Items: items,
 		Pagination: &models.PaginationResponse{
-			Limit:  int32(result.Pagination.Limit),
-			Offset: int32(result.Pagination.Offset),
+			Limit:  int64(result.Pagination.Limit),
+			Offset: int64(result.Pagination.Offset),
 			Total:  result.Pagination.Total,
 		},
 	})
@@ -260,8 +260,8 @@ func (h *ChatHandler) GetChatMessages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, &models.PaginatedChatMessagesResponse{
 		Items: items,
 		Pagination: &models.PaginationResponse{
-			Limit:  int32(result.Pagination.Limit),
-			Offset: int32(result.Pagination.Offset),
+			Limit:  int64(result.Pagination.Limit),
+			Offset: int64(result.Pagination.Offset),
 			Total:  result.Pagination.Total,
 		},
 	})
@@ -371,14 +371,14 @@ func parsePagination(r *http.Request) (int, int) {
 
 func toSendMessageInput(req *models.ChatMessageRequest) (*domain.SendMessageInput, error) {
 	input := &domain.SendMessageInput{}
-	if req.Content != nil {
-		input.Content = *req.Content
+	if req.Content != "" {
+		input.Content = req.Content
 	}
-	if req.AttachmentBase64 == nil || *req.AttachmentBase64 == "" {
+	if req.AttachmentBase64 == "" {
 		return input, nil
 	}
 
-	payload := *req.AttachmentBase64
+	payload := req.AttachmentBase64
 	if idx := strings.Index(payload, ","); idx > 0 && strings.Contains(payload[:idx], "base64") {
 		payload = payload[idx+1:]
 	}
@@ -388,14 +388,14 @@ func toSendMessageInput(req *models.ChatMessageRequest) (*domain.SendMessageInpu
 	}
 
 	att := &domain.AttachmentInput{Data: decoded}
-	if req.AttachmentName != nil {
-		att.FileName = *req.AttachmentName
+	if req.AttachmentName != "" {
+		att.FileName = req.AttachmentName
 	}
-	if req.AttachmentMimeType != nil {
-		att.MimeType = *req.AttachmentMimeType
+	if req.AttachmentMimeType != "" {
+		att.MimeType = req.AttachmentMimeType
 	}
-	if req.AttachmentType != nil {
-		att.MediaType = *req.AttachmentType
+	if req.AttachmentType != "" {
+		att.MediaType = req.AttachmentType
 	}
 	input.Attachment = att
 	return input, nil
