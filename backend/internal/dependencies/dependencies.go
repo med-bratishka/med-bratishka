@@ -37,9 +37,11 @@ type Dependencies struct {
 	authService     service.AuthService
 	bindingsService service.BindingsService
 	chatService     service.ChatService
+	catalogService  service.CatalogService
 	authHandler     handler.Handler
 	bindingsHandler handler.Handler
 	chatHandler     handler.Handler
+	catalogHandler  handler.Handler
 }
 
 func New(cfg *config.Config) (*Dependencies, error) {

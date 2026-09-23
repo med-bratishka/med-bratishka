@@ -42,6 +42,42 @@ paths:
           description: ok
           schema:
             $ref: "#/definitions/SuccessResponse"
+  /clinics:
+    get:
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: "#/definitions/ClinicsResponse"
+        "500":
+          description: internal error
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /clinics/{clinic_id}:
+    get:
+      parameters:
+        - name: clinic_id
+          in: path
+          required: true
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: "#/definitions/ClinicResponse"
+        "400":
+          description: bad request
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        "404":
+          description: not found
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        "500":
+          description: internal error
+          schema:
+            $ref: "#/definitions/ErrorResponse"
   /clinics/{clinic_id}/doctors/{doctor_id}/bind:
     post:
       parameters:
@@ -74,6 +110,42 @@ paths:
             $ref: "#/definitions/ErrorResponse"
         "404":
           description: not found
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /doctors:
+    get:
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: "#/definitions/DoctorsResponse"
+        "500":
+          description: internal error
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /doctors/{doctor_id}:
+    get:
+      parameters:
+        - name: doctor_id
+          in: path
+          required: true
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: "#/definitions/DoctorResponse"
+        "400":
+          description: bad request
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        "404":
+          description: not found
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        "500":
+          description: internal error
           schema:
             $ref: "#/definitions/ErrorResponse"
   /doctors/me/code:
@@ -408,6 +480,74 @@ definitions:
       message:
         type: string
         example: operation completed successfully
+
+  ClinicResponse:
+    type: object
+    properties:
+      id:
+        type: integer
+        format: int64
+      name:
+        type: string
+      description:
+        type: string
+      address:
+        type: string
+      phone:
+        type: string
+      email:
+        type: string
+      created_at:
+        type: integer
+        format: int64
+      updated_at:
+        type: integer
+        format: int64
+
+  ClinicsResponse:
+    type: array
+    items:
+      $ref: "#/definitions/ClinicResponse"
+
+  DoctorResponse:
+    type: object
+    properties:
+      id:
+        type: integer
+        format: int64
+      login:
+        type: string
+      email:
+        type: string
+      phone:
+        type: string
+      is_verified:
+        type: boolean
+      first_name:
+        type: string
+      last_name:
+        type: string
+      middle_name:
+        type: string
+      specialization:
+        type: string
+      license_number:
+        type: string
+      bio:
+        type: string
+      doctor_code:
+        type: string
+      created_at:
+        type: integer
+        format: int64
+      updated_at:
+        type: integer
+        format: int64
+
+  DoctorsResponse:
+    type: array
+    items:
+      $ref: "#/definitions/DoctorResponse"
 
   DoctorCodeRequest:
     type: object
