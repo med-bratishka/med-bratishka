@@ -52,7 +52,7 @@ const IconUnlink = () => (
   </svg>
 )
 
-function PatientRow({ chat, unread, lastMsg, onChat, onPrescriptions, onUnlink }) {
+function PatientRow({ chat, unread, lastMsg, onChat, onUnlink }) {
   const name = chat.other_name || chat.other_login || `Пациент #${chat.patient_id}`
   const hasUnread = unread > 0
   return (
@@ -69,7 +69,6 @@ function PatientRow({ chat, unread, lastMsg, onChat, onPrescriptions, onUnlink }
       </div>
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <IconButton onClick={() => onChat(chat)} title="Открыть чат"><IconChat /></IconButton>
-        <IconButton onClick={() => onPrescriptions(chat)} title="Назначения"><IconPrescription /></IconButton>
         <IconButton onClick={() => onUnlink(chat)} title="Отвязать пациента" danger><IconUnlink /></IconButton>
       </div>
       <svg className="text-gray-300 flex-shrink-0" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 4l4 4-4 4"/></svg>
@@ -206,7 +205,6 @@ export default function DoctorDashboard() {
               unread={chatMeta[chat.id]?.unread ?? 0}
               lastMsg={chatMeta[chat.id]?.lastMsg ?? ''}
               onChat={handleChat}
-              onPrescriptions={(c) => navigate('/doctor/prescriptions', { state: { chat: c } })}
               onUnlink={handleUnlink}
             />
           ))}
