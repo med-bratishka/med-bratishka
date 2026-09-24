@@ -7,13 +7,19 @@ type Pagination struct {
 }
 
 type ChatSummary struct {
-	ID          int64
-	DoctorID    int64
-	PatientID   int64
-	OtherUserID int64
-	OtherLogin  string
-	OtherName   string
-	UpdatedAt   int64
+	ID                int64
+	DoctorID          int64
+	PatientID         int64
+	OtherUserID       int64
+	OtherLogin        string
+	OtherName         string
+	UpdatedAt         int64
+	LastMessageID     int64
+	LastMessage       string
+	LastMessageAt     int64
+	UnreadCount       int
+	LastReadMessageID int64
+	HasUnread         bool
 }
 
 type PaginatedChats struct {
@@ -47,4 +53,8 @@ type ChatMessage struct {
 type PaginatedChatMessages struct {
 	Items      []ChatMessage
 	Pagination Pagination
+}
+
+type MarkChatReadInput struct {
+	LastReadMessageID int64
 }

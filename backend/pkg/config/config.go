@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -31,9 +32,13 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret  string        `json:"jwt_secret"`
-	AccessTTL  time.Duration `json:"-"`
-	RefreshTTL time.Duration `json:"-"`
+	JWTSecret              string        `json:"jwt_secret"`
+	AccessTTL              time.Duration `json:"-"`
+	RefreshTTL             time.Duration `json:"-"`
+	TwoFactorEncryptionKey string        `json:"two_factor_encryption_key"`
+	TwoFactorIssuer        string        `json:"two_factor_issuer"`
+	TwoFactorChallengeTTL  time.Duration `json:"-"`
+	TrustedDeviceTTL       time.Duration `json:"-"`
 }
 
 type S3Config struct {
@@ -50,9 +55,13 @@ type jsonConfig struct {
 	Server   ServerConfig   `json:"server"`
 	Database DatabaseConfig `json:"database"`
 	Auth     struct {
-		JWTSecret  string `json:"jwt_secret"`
-		AccessTTL  string `json:"access_ttl"`
-		RefreshTTL string `json:"refresh_ttl"`
+		JWTSecret              string `json:"jwt_secret"`
+		AccessTTL              string `json:"access_ttl"`
+		RefreshTTL             string `json:"refresh_ttl"`
+		TwoFactorEncryptionKey string `json:"two_factor_encryption_key"`
+		TwoFactorIssuer        string `json:"two_factor_issuer"`
+		TwoFactorChallengeTTL  string `json:"two_factor_challenge_ttl"`
+		TrustedDeviceTTL       string `json:"trusted_device_ttl"`
 	} `json:"auth"`
 	S3 S3Config `json:"s3"`
 }
@@ -86,9 +95,13 @@ func defaultConfig() *Config {
 			CertLoc:  "",
 		},
 		Auth: AuthConfig{
-			JWTSecret:  "triss-merigoldd-milashka",
-			AccessTTL:  15 * time.Minute,
-			RefreshTTL: 7 * 24 * time.Hour,
+			JWTSecret:              "triss-merigoldd-milashka",
+			AccessTTL:              15 * time.Minute,
+			RefreshTTL:             7 * 24 * time.Hour,
+			TwoFactorEncryptionKey: "change-me-2fa-secret-key",
+			TwoFactorIssuer:        "Medbratishka",
+			TwoFactorChallengeTTL:  5 * time.Minute,
+			TrustedDeviceTTL:       30 * 24 * time.Hour,
 		},
 		S3: S3Config{
 			Endpoint:        "",
@@ -124,17 +137,89 @@ func loadFromJSON(path string) (*Config, bool) {
 		return nil, false
 	}
 
-	cfg := &Config{
-		Server:   jc.Server,
-		Database: jc.Database,
-		Auth: AuthConfig{
-			JWTSecret:  jc.Auth.JWTSecret,
-			AccessTTL:  parseDurationString(jc.Auth.AccessTTL, 15*time.Minute),
-			RefreshTTL: parseDurationString(jc.Auth.RefreshTTL, 7*24*time.Hour),
-		},
-		S3: jc.S3,
+	cfg := defaultConfig()
+	if jc.Server.Host != "" {
+		cfg.Server.Host = jc.Server.Host
+	}
+	if jc.Server.Port != "" {
+		cfg.Server.Port = jc.Server.Port
+	}
+	if jc.Database.Host != "" {
+		cfg.Database.Host = jc.Database.Host
+	}
+	if jc.Database.Port != "" {
+		cfg.Database.Port = jc.Database.Port
+	}
+	if jc.Database.User != "" {
+		cfg.Database.User = jc.Database.User
+	}
+	if jc.Database.Password != "" {
+		cfg.Database.Password = jc.Database.Password
+	}
+	if jc.Database.DBName != "" {
+		cfg.Database.DBName = jc.Database.DBName
+	}
+	if jc.Database.SSLMode != "" {
+		cfg.Database.SSLMode = jc.Database.SSLMode
+	}
+	if jc.Database.CertLoc != "" {
+		cfg.Database.CertLoc = jc.Database.CertLoc
+	}
+	if jc.Auth.JWTSecret != "" {
+		cfg.Auth.JWTSecret = jc.Auth.JWTSecret
+	}
+	cfg.Auth.AccessTTL = parseDurationString(jc.Auth.AccessTTL, cfg.Auth.AccessTTL)
+	cfg.Auth.RefreshTTL = parseDurationString(jc.Auth.RefreshTTL, cfg.Auth.RefreshTTL)
+	if jc.Auth.TwoFactorEncryptionKey != "" {
+		cfg.Auth.TwoFactorEncryptionKey = jc.Auth.TwoFactorEncryptionKey
+	}
+	if jc.Auth.TwoFactorIssuer != "" {
+		cfg.Auth.TwoFactorIssuer = jc.Auth.TwoFactorIssuer
+	}
+	cfg.Auth.TwoFactorChallengeTTL = parseDurationString(jc.Auth.TwoFactorChallengeTTL, cfg.Auth.TwoFactorChallengeTTL)
+	cfg.Auth.TrustedDeviceTTL = parseDurationString(jc.Auth.TrustedDeviceTTL, cfg.Auth.TrustedDeviceTTL)
+	if jc.S3.Endpoint != "" {
+		cfg.S3.Endpoint = jc.S3.Endpoint
+	}
+	if jc.S3.Region != "" {
+		cfg.S3.Region = jc.S3.Region
+	}
+	if jc.S3.AccessKey != "" {
+		cfg.S3.AccessKey = jc.S3.AccessKey
+	}
+	if jc.S3.SecretKey != "" {
+		cfg.S3.SecretKey = jc.S3.SecretKey
+	}
+	if jc.S3.Bucket != "" {
+		cfg.S3.Bucket = jc.S3.Bucket
+	}
+	cfg.S3.UseSSL = jc.S3.UseSSL
+	if jc.S3.MaxUploadSizeMB != 0 {
+		cfg.S3.MaxUploadSizeMB = jc.S3.MaxUploadSizeMB
 	}
 	return cfg, true
+}
+
+func (cfg *Config) Validate() error {
+	if cfg.Auth.JWTSecret == "" {
+		return fmt.Errorf("auth.jwt_secret is required")
+	}
+	if cfg.Auth.TwoFactorEncryptionKey == "" {
+		return fmt.Errorf("auth.two_factor_encryption_key or TWO_FACTOR_ENCRYPTION_KEY is required")
+	}
+	if cfg.Auth.AccessTTL <= 0 {
+		return fmt.Errorf("auth.access_ttl must be positive")
+	}
+	if cfg.Auth.RefreshTTL <= 0 {
+		return fmt.Errorf("auth.refresh_ttl must be positive")
+	}
+	if cfg.Auth.TwoFactorChallengeTTL <= 0 {
+		return fmt.Errorf("auth.two_factor_challenge_ttl must be positive")
+	}
+	if cfg.Auth.TrustedDeviceTTL <= 0 {
+		return fmt.Errorf("auth.trusted_device_ttl must be positive")
+	}
+	return nil
 }
 
 func applyEnvOverrides(cfg *Config) {
@@ -152,6 +237,10 @@ func applyEnvOverrides(cfg *Config) {
 	cfg.Auth.JWTSecret = getEnv("JWT_SECRET", cfg.Auth.JWTSecret)
 	cfg.Auth.AccessTTL = parseDurationEnv("ACCESS_TTL", cfg.Auth.AccessTTL)
 	cfg.Auth.RefreshTTL = parseDurationEnv("REFRESH_TTL", cfg.Auth.RefreshTTL)
+	cfg.Auth.TwoFactorEncryptionKey = getEnv("TWO_FACTOR_ENCRYPTION_KEY", cfg.Auth.TwoFactorEncryptionKey)
+	cfg.Auth.TwoFactorIssuer = getEnv("TWO_FACTOR_ISSUER", cfg.Auth.TwoFactorIssuer)
+	cfg.Auth.TwoFactorChallengeTTL = parseDurationEnv("TWO_FACTOR_CHALLENGE_TTL", cfg.Auth.TwoFactorChallengeTTL)
+	cfg.Auth.TrustedDeviceTTL = parseDurationEnv("TRUSTED_DEVICE_TTL", cfg.Auth.TrustedDeviceTTL)
 
 	cfg.S3.Endpoint = getEnv("S3_ENDPOINT", cfg.S3.Endpoint)
 	cfg.S3.Region = getEnv("S3_REGION", cfg.S3.Region)

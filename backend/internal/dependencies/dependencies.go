@@ -10,6 +10,7 @@ import (
 	"medbratishka/internal/repository/transaction"
 	"medbratishka/internal/service"
 	"medbratishka/pkg/config"
+	secretcrypto "medbratishka/pkg/crypto"
 	"medbratishka/pkg/logger"
 	"medbratishka/pkg/s3"
 	"medbratishka/pkg/time_manager"
@@ -23,6 +24,7 @@ type Dependencies struct {
 	txRepo       transaction.Repository
 	usersRepo    repository.UsersRepository
 	sessionsRepo repository.SessionsRepository
+	twoFARepo    repository.TwoFactorRepository
 	clinicRepo   repository.ClinicRepository
 	doctorRepo   repository.DoctorRepository
 	patientRepo  repository.PatientRepository
@@ -33,6 +35,7 @@ type Dependencies struct {
 	s3Storage   s3.Storage
 
 	tokenManager    token.TokenManager
+	secretBox       *secretcrypto.SecretBox
 	hasher          service.PasswordHasher
 	authService     service.AuthService
 	bindingsService service.BindingsService
@@ -45,6 +48,10 @@ type Dependencies struct {
 }
 
 func New(cfg *config.Config) (*Dependencies, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
+
 	dsn := fmt.Sprintf(
 		"postgresql://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.Database.User,

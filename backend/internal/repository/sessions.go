@@ -67,6 +67,10 @@ func (r *pgSessionsRepository) CreateTX(ctx context.Context, tx transaction.Tran
 
 // GetNextNumberTX получает следующий номер сессии в транзакции
 func (r *pgSessionsRepository) GetNextNumberTX(ctx context.Context, tx transaction.Transaction, userID int64, role domain.Role) (int, error) {
+	if _, err := tx.Txm().ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fmt.Sprintf("auth_tokens:%d:%s", userID, role)); err != nil {
+		return 0, fmt.Errorf("session advisory lock error: %w", err)
+	}
+
 	query := `
 		SELECT COALESCE(MAX(session_number), 0) + 1
 		FROM auth_tokens
@@ -155,7 +159,7 @@ func (r *pgSessionsRepository) Create(ctx context.Context, session *domain.Sessi
 
 // GetNextNumber получает следующий номер сессии (без транзакции)
 func (r *pgSessionsRepository) GetNextNumber(ctx context.Context, userID int64, role domain.Role) (int, error) {
-	tx, err := r.client.DB.BeginTxx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := r.client.DB.BeginTxx(ctx, nil)
 	if err != nil {
 		return 0, fmt.Errorf("failed to start transaction: %w", err)
 	}

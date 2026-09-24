@@ -3,12 +3,13 @@ package service
 import "fmt"
 
 const (
-	CodeBadRequest   = 400
-	CodeUnauthorized = 401
-	CodeForbidden    = 403
-	CodeNotFound     = 404
-	CodeConflict     = 409
-	CodeInternal     = 500
+	CodeBadRequest      = 400
+	CodeUnauthorized    = 401
+	CodeForbidden       = 403
+	CodeNotFound        = 404
+	CodeConflict        = 409
+	CodeTooManyRequests = 429
+	CodeInternal        = 500
 )
 
 type ServiceError struct {

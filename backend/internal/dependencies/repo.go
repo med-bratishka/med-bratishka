@@ -26,6 +26,13 @@ func (d *Dependencies) SessionsRepo() repository.SessionsRepository {
 	return d.sessionsRepo
 }
 
+func (d *Dependencies) TwoFactorRepo() repository.TwoFactorRepository {
+	if d.twoFARepo == nil {
+		d.twoFARepo = repository.NewTwoFactorRepository(d.pgClient)
+	}
+	return d.twoFARepo
+}
+
 func (d *Dependencies) ClinicRepo() repository.ClinicRepository {
 	if d.clinicRepo == nil {
 		d.clinicRepo = repository.NewClinicRepository(d.pgClient)

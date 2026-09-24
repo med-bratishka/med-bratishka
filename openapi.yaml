@@ -703,6 +703,22 @@ components:
           type: string
         other_name:
           type: string
+        last_message_id:
+          type: integer
+          format: int64
+        last_message:
+          type: string
+        last_message_at:
+          type: integer
+          format: int64
+        unread_count:
+          type: integer
+          format: int64
+        last_read_message_id:
+          type: integer
+          format: int64
+        has_unread:
+          type: boolean
         updated_at:
           type: integer
           format: int64

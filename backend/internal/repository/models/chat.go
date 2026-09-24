@@ -35,12 +35,17 @@ type ChatMessageDetail struct {
 }
 
 type UserChatDetail struct {
-	ID             int64  `db:"id"`
-	DoctorID       int64  `db:"doctor_id"`
-	PatientID      int64  `db:"patient_id"`
-	OtherUserID    int64  `db:"other_user_id"`
-	OtherLogin     string `db:"login"`
-	OtherFirstName string `db:"first_name"`
-	OtherLastName  string `db:"last_name"`
-	UpdatedAt      int64  `db:"updated_at"`
+	ID                int64   `db:"id"`
+	DoctorID          int64   `db:"doctor_id"`
+	PatientID         int64   `db:"patient_id"`
+	OtherUserID       int64   `db:"other_user_id"`
+	OtherLogin        string  `db:"login"`
+	OtherFirstName    string  `db:"first_name"`
+	OtherLastName     string  `db:"last_name"`
+	UpdatedAt         int64   `db:"updated_at"`
+	LastMessageID     *int64  `db:"last_message_id"`
+	LastMessage       *string `db:"last_message"`
+	LastMessageAt     *int64  `db:"last_message_at"`
+	UnreadCount       int     `db:"unread_count"`
+	LastReadMessageID *int64  `db:"last_read_message_id"`
 }
