@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useChatsWithMeta } from '../../hooks/useChatsWithMeta'
-import { ChatView } from '../../components/chat/ChatView'
 
 const AVATAR_COLORS = [
   ['#dbeafe', '#2563eb'],
@@ -36,22 +35,36 @@ function formatTime(ts) {
   return d.toLocaleDateString('ru', { day: 'numeric', month: 'short' })
 }
 
-function ChatList({ onOpen }) {
-  const { chats, meta, loading, markChatAsRead } = useChatsWithMeta(8000)
+export default function MessagesPage() {
+  const navigate = useNavigate()
+  const { chats, meta, loading, markChatAsRead, reload } = useChatsWithMeta(8000)
+
+  // Перезагружаем при возврате на страницу (после закрытия чата)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') reload() }
+    document.addEventListener('visibilitychange', onVisible)
+    // Также перезагружаем при фокусе окна
+    window.addEventListener('focus', reload)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', reload)
+    }
+  }, [reload])
 
   const open = (chat) => {
     markChatAsRead(chat.id)
-    onOpen(chat)
+    navigate('/doctor/chat', { state: { chatId: chat.id, chat } })
   }
 
   return (
     <div className="flex flex-col h-screen bg-white">
       <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
-        <h1 className="text-base font-semibold text-gray-900">Чат</h1>
+        <h1 className="text-base font-semibold text-gray-900">Сообщения</h1>
       </div>
+
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          [1, 2, 3].map(i => (
+          [1, 2, 3, 4].map(i => (
             <div key={i} className="flex items-center gap-3 px-4 py-3">
               <div className="w-12 h-12 rounded-full bg-gray-100 animate-pulse flex-shrink-0" />
               <div className="flex-1 space-y-2">
@@ -71,18 +84,18 @@ function ChatList({ onOpen }) {
               </svg>
             </div>
             <p className="text-sm font-medium text-gray-600 mb-1">Нет диалогов</p>
-            <p className="text-xs text-gray-400 leading-relaxed">Привяжитесь к врачу на странице «Мой врач»</p>
+            <p className="text-xs text-gray-400 leading-relaxed">Сообщения появятся после привязки пациентов</p>
           </div>
         ) : (
           chats.map((chat) => {
             const m = meta[chat.id] ?? { unread: 0, lastMsg: '', lastTs: 0 }
-            const name = chat.other_name || chat.other_login || `Врач #${chat.doctor_id}`
+            const name = chat.other_name || chat.other_login || `Пациент #${chat.patient_id}`
             const hasUnread = m.unread > 0
             return (
               <button key={chat.id} onClick={() => open(chat)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left border-b border-gray-50">
                 <div className="relative flex-shrink-0">
-                  <Avatar name={name} id={chat.doctor_id} />
+                  <Avatar name={name} id={chat.patient_id} />
                   {hasUnread && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-brand-400 text-white text-[10px] font-medium flex items-center justify-center px-1">
                       {m.unread > 99 ? '99+' : m.unread}
@@ -105,30 +118,4 @@ function ChatList({ onOpen }) {
       </div>
     </div>
   )
-}
-
-export default function PatientChatPage() {
-  const location = useLocation()
-  const [activeChat, setActiveChat] = useState(location.state?.chat ?? null)
-
-  useEffect(() => {
-    if (location.state?.chat) setActiveChat(location.state.chat)
-  }, [location.state])
-
-  if (activeChat) {
-    const doctorName = activeChat.other_name || activeChat.other_login || `Врач #${activeChat.doctor_id}`
-    return (
-      <div className="h-screen flex flex-col">
-        <ChatView
-          chatId={activeChat.id}
-          chat={activeChat}
-          otherName={doctorName}
-          otherSub="Ваш лечащий врач"
-          onBack={() => setActiveChat(null)}
-        />
-      </div>
-    )
-  }
-
-  return <ChatList onOpen={setActiveChat} />
 }
