@@ -14,6 +14,7 @@ import PatientDashboard from './pages/patient/PatientDashboard'
 import PatientChatPage from './pages/patient/PatientChatPage'
 import PatientMedicationsPage from './pages/patient/PatientMedicationsPage'
 import PatientRemindersPage from './pages/patient/PatientRemindersPage'
+import SecuritySettingsPage from './pages/SecuritySettingsPage'
 
 import AdminDashboard from './pages/admin/AdminDashboard'
 
@@ -39,10 +40,12 @@ export default function App() {
                 <Route path="/doctor/chat" element={<ChatPage />} />
                 <Route path="/doctor/invite" element={<InvitePage />} />
                 <Route path="/doctor/messages" element={<MessagesPage />} />
+                <Route path="/doctor/security" element={<SecuritySettingsPage />} />
               </Route>
 
               <Route element={<AppLayout requiredRole="admin" />}>
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/security" element={<SecuritySettingsPage />} />
               </Route>
             </>
           )}
@@ -53,6 +56,7 @@ export default function App() {
               <Route path="/patient/chat" element={<PatientChatPage />} />
               <Route path="/patient/medications" element={<PatientMedicationsPage />} />
               <Route path="/patient/reminders" element={<PatientRemindersPage />} />
+              <Route path="/patient/security" element={<SecuritySettingsPage />} />
             </Route>
           )}
 

@@ -2,6 +2,8 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/index'
+import TwoFactorChallenge from '../components/auth/TwoFactorChallenge'
+import { persistAuthResponse } from '../utils/authSession'
 
 export default function PatientAuthPage() {
   const [mode, setMode] = useState('login')
@@ -14,6 +16,7 @@ export default function PatientAuthPage() {
   })
   const [loading, setLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
+  const [pendingTwoFactor, setPendingTwoFactor] = useState(null)
 
   const { login, authError, setAuthError } = useAuth()
   const navigate = useNavigate()
@@ -81,16 +84,16 @@ export default function PatientAuthPage() {
         })
       }
 
-      const { access_token, refresh_token, user } = res.data
+      if (res.data?.two_factor_required) {
+        setPendingTwoFactor({
+          challengeId: res.data.two_factor_challenge,
+          expiresAt: res.data.two_factor_expires_at,
+        })
+        return
+      }
 
-      login({
-        id: user.id,
-        name: [form.firstName, form.lastName].filter(Boolean).join(' ') || user.login || user.email,
-        role: user.role,
-        token: access_token.token,
-        refreshToken: refresh_token.token,
-      })
-
+      const fallbackName = [form.firstName, form.lastName].filter(Boolean).join(' ')
+      persistAuthResponse(res.data, login, fallbackName)
       navigate('/patient')
     } catch (err) {
       const data = err?.response?.data
@@ -148,6 +151,22 @@ export default function PatientAuthPage() {
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') handleSubmit()
+  }
+
+  if (pendingTwoFactor) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-4">
+        <div className="bg-zinc-900/80 backdrop-blur-xl rounded-2xl border border-zinc-800 shadow-2xl shadow-black/50 w-full max-w-md p-8">
+          <TwoFactorChallenge
+            challenge={pendingTwoFactor}
+            login={login}
+            fallbackName={form.email}
+            onBack={() => setPendingTwoFactor(null)}
+            onComplete={() => navigate('/patient')}
+          />
+        </div>
+      </div>
+    )
   }
 
   return (

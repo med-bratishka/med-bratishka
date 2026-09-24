@@ -17,7 +17,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const url = err.config?.url || ''
+    const isAuthFlow = url.startsWith('/auth/login') || url.startsWith('/auth/2fa/verify')
+    if (err.response?.status === 401 && !isAuthFlow) {
       localStorage.removeItem('medcare_user')
       window.location.href = '/auth'
     }
@@ -26,9 +28,28 @@ api.interceptors.response.use(
 )
 
 export const authApi = {
-  login: (email, password) =>
-    api.post('/auth/login', { access_parameter: email, password }),
+  login: (email, password) => {
+    const trustedDeviceToken = localStorage.getItem('medcare_trusted_device')
+    return api.post('/auth/login', {
+      access_parameter: email,
+      password,
+      trusted_device_token: trustedDeviceToken || undefined,
+      device_name: navigator.userAgent,
+    })
+  },
   register: (data) => api.post('/auth/register', data),
+  setup2FA: () => api.post('/auth/2fa/setup'),
+  confirm2FA: (code) => api.post('/auth/2fa/confirm', { code }),
+  verify2FA: ({ challengeId, code, recoveryCode, rememberDevice }) =>
+    api.post('/auth/2fa/verify', {
+      challenge_id: challengeId,
+      code: recoveryCode ? undefined : code,
+      recovery_code: recoveryCode || undefined,
+      trust_device: !!rememberDevice,
+      device_name: navigator.userAgent,
+    }),
+  disable2FA: (code) => api.post('/auth/2fa/disable', { code }),
+  regenerateRecoveryCodes: (code) => api.post('/auth/2fa/recovery-codes', { code }),
   refresh: (refreshToken) =>
     api.post('/auth/refresh', null, {
       headers: { Authorization: `Bearer ${refreshToken}` },
@@ -45,6 +66,8 @@ export const chatApi = {
     api.get(`/chats/${chatId}/messages`, { params }),
   sendMessage: (chatId, content) =>
     api.post(`/chats/${chatId}/messages`, { content }),
+  markRead: (chatId, lastReadMessageId) =>
+    api.post(`/chats/${chatId}/read`, lastReadMessageId ? { last_read_message_id: lastReadMessageId } : {}),
 }
 
 export const doctorApi = {
