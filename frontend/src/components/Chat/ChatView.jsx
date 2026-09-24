@@ -39,7 +39,7 @@ function groupByDate(messages) {
   return groups
 }
 
-export function ChatView({ chatId, chat, otherName, otherSub }) {
+export function ChatView({ chatId, chat, otherName, otherSub, onBack }) {
   const { user } = useAuth()
   const [messages, setMessages] = useState([])
   const [ready, setReady] = useState(false)
@@ -59,7 +59,11 @@ export function ChatView({ chatId, chat, otherName, otherSub }) {
         const list = res.data?.items ?? res.data?.messages ?? res.data
         if (Array.isArray(list)) {
           setMessages(list)
-          if (list.length > 0) setLastSeen(chatId, list[list.length - 1].id)
+          if (list.length > 0) {
+            // Сортируем чтобы взять реально последнее сообщение
+            const sortedList = [...list].sort((a, b) => (a.created_at ?? a.id ?? 0) - (b.created_at ?? b.id ?? 0))
+            setLastSeen(chatId, sortedList[sortedList.length - 1].id)
+          }
         }
       })
       .catch(console.error)
@@ -120,9 +124,16 @@ export function ChatView({ chatId, chat, otherName, otherSub }) {
   return (
     <div className="flex flex-col h-full">
       {/* Шапка */}
-      <div className="bg-white border-b border-gray-100 px-6 py-4 flex-shrink-0">
-        <p className="text-sm font-medium text-gray-800">{otherName || 'Чат'}</p>
-        {otherSub && <p className="text-xs text-gray-400 mt-0.5">{otherSub}</p>}
+      <div className="bg-white border-b border-gray-100 px-6 py-4 flex-shrink-0 flex items-center gap-3">
+        {onBack && (
+          <button onClick={onBack} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M10 4L6 8l4 4"/></svg>
+          </button>
+        )}
+        <div>
+          <p className="text-sm font-medium text-gray-800">{otherName || 'Чат'}</p>
+          {otherSub && <p className="text-xs text-gray-400 mt-0.5">{otherSub}</p>}
+        </div>
       </div>
 
       {/* Сообщения */}

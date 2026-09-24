@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { chatApi, doctorApi } from '../../api/index'
+import { useChatsWithMeta } from '../../hooks/useChatsWithMeta'
 
 const AVATAR_COLORS = [
   'bg-blue-100 text-blue-600',
@@ -11,12 +12,9 @@ const AVATAR_COLORS = [
   'bg-cyan-100 text-cyan-600',
 ]
 
-const getLastSeen = (chatId) => parseInt(localStorage.getItem(`seen_${chatId}`) || '0', 10)
-const setLastSeen = (chatId, msgId) => localStorage.setItem(`seen_${chatId}`, String(msgId))
-
 function Avatar({ name, id }) {
   const color = AVATAR_COLORS[(id ?? 0) % AVATAR_COLORS.length]
-  const initials = name ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() : '?'
+  const initials = name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?'
   return (
     <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold ${color}`}>
       {initials}
@@ -38,12 +36,7 @@ const IconChat = () => (
     <path d="M2 4.5C2 3.12 3.12 2 4.5 2h7C12.88 2 14 3.12 14 4.5v5c0 1.38-1.12 2.5-2.5 2.5H8l-3 2v-2H4.5C3.12 12 2 10.88 2 9.5v-5z"/>
   </svg>
 )
-const IconPrescription = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="1.5" width="10" height="13" rx="1.5"/>
-    <path d="M6 5h4M6 8h4M6 11h2"/><path d="M9.5 11.5l2 2M11.5 11.5l-2 2"/>
-  </svg>
-)
+
 const IconUnlink = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6.5 9.5l-2 2a2.121 2.121 0 000 3 2.121 2.121 0 003 0l2-2"/>
@@ -77,55 +70,12 @@ function PatientRow({ chat, unread, lastMsg, onChat, onUnlink }) {
 }
 
 export default function DoctorDashboard() {
-  const [chats, setChats] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [unlinking, setUnlinking] = useState(null)
-  const [chatMeta, setChatMeta] = useState({})
   const navigate = useNavigate()
-
-  const loadChats = useCallback(async () => {
-    try {
-      const res = await chatApi.getChats()
-      const arr = Array.isArray(res.data?.items ?? res.data?.chats ?? res.data)
-        ? (res.data?.items ?? res.data?.chats ?? res.data)
-        : []
-      setChats(arr)
-
-      const meta = {}
-      await Promise.all(arr.map(async (chat) => {
-        try {
-          const msgRes = await chatApi.getMessages(chat.id)
-          const msgs = msgRes.data?.items ?? msgRes.data?.messages ?? msgRes.data ?? []
-          if (!Array.isArray(msgs) || msgs.length === 0) { meta[chat.id] = { unread: 0, lastMsg: '' }; return }
-          const last = msgs[msgs.length - 1]
-          const lastSeen = getLastSeen(chat.id)
-          meta[chat.id] = {
-            unread: msgs.filter(m => m.id > lastSeen).length,
-            lastMsg: last.content || '',
-          }
-        } catch { meta[chat.id] = { unread: 0, lastMsg: '' } }
-      }))
-      setChatMeta(meta)
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Не удалось загрузить данные')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { loadChats() }, [])
-  useEffect(() => {
-    const interval = setInterval(loadChats, 10000)
-    return () => clearInterval(interval)
-  }, [loadChats])
+  const { chats, meta, loading, reload, markChatAsRead } = useChatsWithMeta(10000)
+  const [unlinking, setUnlinking] = useState(null)
 
   const handleChat = (chat) => {
-    // Помечаем сообщения прочитанными
-    const meta = chatMeta[chat.id]
-    if (meta?.unread > 0) {
-      setChatMeta(prev => ({ ...prev, [chat.id]: { ...prev[chat.id], unread: 0 } }))
-    }
+    markChatAsRead(chat.id)
     navigate('/doctor/chat', { state: { chatId: chat.id, chat } })
   }
 
@@ -136,13 +86,15 @@ export default function DoctorDashboard() {
     try {
       await chatApi.closeChat(chat.id)
       await doctorApi.unlinkPatient(chat.patient_id)
-      setChats(prev => prev.filter(c => c.id !== chat.id))
+      reload()
     } catch (err) {
       alert(err?.response?.data?.message || 'Не удалось отвязать пациента')
-    } finally { setUnlinking(null) }
+    } finally {
+      setUnlinking(null)
+    }
   }
 
-  const totalUnread = Object.values(chatMeta).reduce((s, m) => s + (m.unread || 0), 0)
+  const chatsWithUnread = Object.values(meta).filter(m => m.unread > 0).length
 
   return (
     <div className="p-6 max-w-3xl">
@@ -161,7 +113,7 @@ export default function DoctorDashboard() {
         {[
           { label: 'Всего пациентов', value: loading ? '—' : chats.length },
           { label: 'Активных чатов', value: loading ? '—' : chats.length },
-          { label: 'Новых сообщений', value: loading ? '—' : totalUnread },
+          { label: 'Новых сообщений', value: loading ? '—' : chatsWithUnread },
         ].map((m) => (
           <div key={m.label} className="bg-white rounded-xl border border-gray-100 p-4">
             <p className="text-xs text-gray-400 mb-1">{m.label}</p>
@@ -172,7 +124,7 @@ export default function DoctorDashboard() {
 
       {loading ? (
         <div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50 overflow-hidden">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3].map(i => (
             <div key={i} className="flex items-center gap-3 px-5 py-3.5">
               <div className="w-10 h-10 rounded-full bg-gray-100 animate-pulse flex-shrink-0" />
               <div className="flex-1 space-y-1.5">
@@ -181,10 +133,6 @@ export default function DoctorDashboard() {
               </div>
             </div>
           ))}
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-100 rounded-xl p-6 text-center">
-          <p className="text-sm text-red-500">{error}</p>
         </div>
       ) : chats.length === 0 ? (
         <div className="bg-white border border-gray-100 rounded-xl p-10 flex flex-col items-center text-center">
@@ -198,12 +146,12 @@ export default function DoctorDashboard() {
         </div>
       ) : (
         <div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50 overflow-hidden">
-          {chats.map((chat) => (
+          {chats.map(chat => (
             <PatientRow
               key={chat.id}
               chat={chat}
-              unread={chatMeta[chat.id]?.unread ?? 0}
-              lastMsg={chatMeta[chat.id]?.lastMsg ?? ''}
+              unread={meta[chat.id]?.unread ?? 0}
+              lastMsg={meta[chat.id]?.lastMsg ?? ''}
               onChat={handleChat}
               onUnlink={handleUnlink}
             />
