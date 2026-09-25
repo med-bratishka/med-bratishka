@@ -16,7 +16,11 @@ export default function SecuritySettingsPage() {
     try {
       await fn()
     } catch (err) {
-      setError(err?.response?.data?.message || 'Не удалось выполнить действие')
+      if (err?.response?.status === 404) {
+        setError('Запрос 2FA не дошел до backend: проверьте proxy /auth')
+      } else {
+        setError(err?.response?.data?.message || 'Не удалось выполнить действие')
+      }
     } finally {
       setLoading(false)
     }
