@@ -5,7 +5,7 @@ import Sidebar from './Sidebar'
 export default function AppLayout({ requiredRole }) {
   const { user, isLoading } = useAuth()
 
-  // Пока проверяем localStorage — не редиректим, показываем заглушку
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

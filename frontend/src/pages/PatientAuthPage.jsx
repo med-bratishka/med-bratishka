@@ -163,6 +163,7 @@ export default function PatientAuthPage() {
     )
   }
 
+
   return (
       <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-4 relative overflow-hidden">
         {/* Декоративный фон */}
