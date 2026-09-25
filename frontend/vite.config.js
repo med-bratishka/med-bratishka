@@ -16,6 +16,10 @@ export default defineConfig({
       '/patients': 'http://localhost:8080',
       '/clinics': 'http://localhost:8080',
       '/chats': 'http://localhost:8080',
+      '/ws': {
+        target: 'http://localhost:8080',
+        ws: true,
+      },
       '/health': 'http://localhost:8080',
     }
   }

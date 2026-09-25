@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { chatApi } from '../api/index'
 import { useAuth } from '../context/AuthContext'
+import { useNotificationsSocket } from './useNotificationsSocket'
 
-export function useChatsWithMeta(pollInterval = 8000) {
+export function useChatsWithMeta(pollInterval = 30000) {
   const { user } = useAuth()
   const [chats, setChats] = useState([])
   const [meta, setMeta] = useState({})
@@ -41,6 +42,12 @@ export function useChatsWithMeta(pollInterval = 8000) {
     const t = setInterval(load, pollInterval)
     return () => clearInterval(t)
   }, [load, pollInterval])
+
+  useNotificationsSocket({
+    onChatNotification: () => {
+      load()
+    },
+  })
 
   const markChatAsRead = useCallback(async (chatId) => {
     const lastMsgId = meta[chatId]?.lastMsgId
