@@ -444,6 +444,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /ws/notifications:
+    get:
+      summary: WebSocket notifications subscription
+      description: >
+        Upgrades the connection to WebSocket. Browser clients pass access token in the
+        `token` query parameter, then send `{ "type": "subscribe", "topic": "chat_notifications" }`.
+        Server pushes messages with type `notification` and topic `chat_notifications`.
+      tags:
+        - Notifications
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Access JWT token
+      responses:
+        '101':
+          description: Switching Protocols
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     RegisterRequest:
@@ -739,6 +765,62 @@ components:
           items:
             $ref: '#/components/schemas/ChatMessageResponse'
 
+    WebSocketSubscribeMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - subscribe
+            - unsubscribe
+          example: subscribe
+        topic:
+          type: string
+          enum:
+            - chat_notifications
+          example: chat_notifications
+
+    WebSocketNotificationMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - notification
+          example: notification
+        topic:
+          type: string
+          enum:
+            - chat_notifications
+          example: chat_notifications
+        data:
+          $ref: '#/components/schemas/ChatNotificationPayload'
+
+    ChatNotificationPayload:
+      type: object
+      properties:
+        type:
+          type: string
+          example: chat.message.created
+        chat_id:
+          type: integer
+          format: int64
+        message_id:
+          type: integer
+          format: int64
+        sender_id:
+          type: integer
+          format: int64
+        recipient_id:
+          type: integer
+          format: int64
+        content:
+          type: string
+          nullable: true
+        created_at:
+          type: integer
+          format: int64
+
   securitySchemes:
     bearerAuth:
       type: http
@@ -755,3 +837,5 @@ tags:
     description: Endpoints для проверки здоровья сервера
   - name: Chat
     description: Doctor-patient chats
+  - name: Notifications
+    description: Realtime WebSocket notification subscriptions

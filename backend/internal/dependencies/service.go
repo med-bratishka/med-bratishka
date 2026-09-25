@@ -92,3 +92,16 @@ func (d *Dependencies) CatalogService() service.CatalogService {
 	}
 	return d.catalogService
 }
+
+func (d *Dependencies) NotificationWorker() *service.NotificationWorker {
+	if d.notificationWorker == nil {
+		d.notificationWorker = service.NewNotificationWorker(
+			d.TxRepo(),
+			d.NotificationRepo(),
+			d.NotificationHub(),
+			d.TimeManager(),
+			d.Logger(),
+		)
+	}
+	return d.notificationWorker
+}
