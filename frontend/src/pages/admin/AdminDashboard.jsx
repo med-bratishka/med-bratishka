@@ -70,12 +70,11 @@ function DoctorTable({ doctors, loading }) {
               <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Врач</th>
               <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Специализация</th>
               <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Телефон</th>
-              <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Статус</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filtered.length === 0 ? (
-              <tr><td colSpan="4" className="px-5 py-10 text-center text-sm text-gray-400">Врачи не найдены</td></tr>
+              <tr><td colSpan="3" className="px-5 py-10 text-center text-sm text-gray-400">Врачи не найдены</td></tr>
             ) : filtered.map(d => {
               const name = [d.first_name, d.last_name].filter(Boolean).join(' ') || d.login || `Врач #${d.id}`
               return (
@@ -91,11 +90,7 @@ function DoctorTable({ doctors, loading }) {
                   </td>
                   <td className="px-5 py-3.5 text-sm text-gray-600">{d.specialization || '—'}</td>
                   <td className="px-5 py-3.5 text-sm text-gray-600">{d.phone || '—'}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${d.is_verified ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
-                      {d.is_verified ? 'Верифицирован' : 'Не верифицирован'}
-                    </span>
-                  </td>
+
                 </tr>
               )
             })}
