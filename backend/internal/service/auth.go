@@ -423,7 +423,7 @@ func (s *authService) DisableTOTP(ctx context.Context, userCtx *domain.UserToken
 	if err != nil {
 		return wrapInternal("DisableTOTP/GetByIDTX", err)
 	}
-	ok, err := s.validateTOTPOrRecoveryTX(ctx, tx, user, code, "", s.timeManager.Now().UnixMilli())
+	ok, err := s.validateTOTPOrRecoveryTX(ctx, tx, user, code, code, s.timeManager.Now().UnixMilli())
 	if err != nil {
 		return err
 	}
@@ -456,7 +456,7 @@ func (s *authService) RegenerateRecoveryCodes(ctx context.Context, userCtx *doma
 	if err != nil {
 		return nil, wrapInternal("RegenerateRecoveryCodes/GetByIDTX", err)
 	}
-	ok, err := s.validateTOTPOrRecoveryTX(ctx, tx, user, code, "", s.timeManager.Now().UnixMilli())
+	ok, err := s.validateTOTPOrRecoveryTX(ctx, tx, user, code, code, s.timeManager.Now().UnixMilli())
 	if err != nil {
 		return nil, err
 	}
