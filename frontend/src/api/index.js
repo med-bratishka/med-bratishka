@@ -20,7 +20,8 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     const url = err.config?.url || ''
-    const isAuthFlow = url.startsWith('/auth/login') || url.startsWith('/auth/2fa/verify')
+    const path = url.startsWith('http') ? new URL(url).pathname : url
+    const isAuthFlow = path.startsWith('/auth/login') || path.startsWith('/auth/2fa/verify')
     if (err.response?.status === 401 && !isAuthFlow) {
       localStorage.removeItem('medcare_user')
       window.location.href = '/auth'

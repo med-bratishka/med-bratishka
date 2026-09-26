@@ -154,6 +154,9 @@ export default function StaffAuthPage() {
       else if (statusCode === 401 && mode === 'login') {
         setAuthError('Неверный email или пароль')
       }
+      else if (statusCode === 404 && mode === 'login') {
+        setAuthError('Не найден endpoint /auth/login. Проверьте, что frontend проксирует /auth на backend и backend запущен на 8080.')
+      }
       else {
         setAuthError(rawMsg || 'Произошла ошибка. Попробуйте ещё раз')
       }
@@ -324,6 +327,7 @@ export default function StaffAuthPage() {
               )}
 
               <button
+                  type="button"
                   onClick={handleSubmit}
                   disabled={loading}
                   className="btn-primary w-full py-3 mt-2 disabled:opacity-50 disabled:cursor-not-allowed text-base font-semibold shadow-lg shadow-amber-900/30"
@@ -348,6 +352,7 @@ export default function StaffAuthPage() {
               </div>
 
               <button
+                  type="button"
                   onClick={() => {
                     setMode(mode === 'login' ? 'register' : 'login')
                     setAuthError(null)
