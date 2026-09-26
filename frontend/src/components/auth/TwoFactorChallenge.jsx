@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { authApi } from '../../api/index'
+import { getTwoFactorErrorMessage } from '../../utils/apiErrors'
 import { persistAuthResponse } from '../../utils/authSession'
 
 export default function TwoFactorChallenge({ challenge, onBack, onComplete, login, fallbackName }) {
@@ -27,17 +28,7 @@ export default function TwoFactorChallenge({ challenge, onBack, onComplete, logi
       persistAuthResponse(res.data, login, fallbackName)
       onComplete(res.data.user)
     } catch (err) {
-      const status = err?.response?.status
-      const code = err?.response?.data?.code
-      if (code === 'CHALLENGE_EXPIRED') {
-        setError('Срок проверки истек, войдите заново')
-      } else if (code === 'INVALID_2FA_CODE') {
-        setError('Неверный код')
-      } else if (status === 404) {
-        setError('Запрос 2FA не дошел до backend: проверьте proxy /auth')
-      } else {
-        setError(err?.response?.data?.message || 'Не удалось проверить код')
-      }
+      setError(getTwoFactorErrorMessage(err))
     } finally {
       setLoading(false)
     }

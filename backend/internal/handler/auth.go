@@ -410,8 +410,12 @@ func getErrorType(statusCode int) string {
 		return "forbidden"
 	case http.StatusNotFound:
 		return "not_found"
+	case http.StatusMethodNotAllowed:
+		return "method_not_allowed"
 	case http.StatusConflict:
 		return "conflict"
+	case http.StatusTooManyRequests:
+		return "too_many_requests"
 	default:
 		return "internal_error"
 	}
