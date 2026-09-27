@@ -15,6 +15,8 @@ type Message struct {
 	SenderID           int64   `db:"sender_id"`
 	Content            *string `db:"content"`
 	AttachmentURL      *string `db:"attachment_url"`
+	AttachmentName     *string `db:"attachment_name"`
+	AttachmentKey      *string `db:"attachment_key"`
 	AttachmentType     *string `db:"attachment_type"`
 	AttachmentMimeType *string `db:"attachment_mime_type"`
 	CreatedAt          int64   `db:"created_at"`
@@ -29,6 +31,7 @@ type ChatMessageDetail struct {
 	LastName           string  `db:"last_name"`
 	Content            *string `db:"content"`
 	AttachmentURL      *string `db:"attachment_url"`
+	AttachmentName     *string `db:"attachment_name"`
 	AttachmentType     *string `db:"attachment_type"`
 	AttachmentMimeType *string `db:"attachment_mime_type"`
 	CreatedAt          int64   `db:"created_at"`

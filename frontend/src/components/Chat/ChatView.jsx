@@ -2,6 +2,26 @@ import { useState, useEffect, useRef } from 'react'
 import { chatApi } from '../../api/index'
 import { useAuth } from '../../context/AuthContext'
 
+const MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024
+
+const getAttachmentType = (mimeType = '') => {
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType.startsWith('audio/')) return 'audio'
+  return 'file'
+}
+
+const formatFileSize = (bytes = 0) => {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} КБ`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
+}
+
+const fileToBase64 = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(reader.result)
+  reader.onerror = () => reject(reader.error)
+  reader.readAsDataURL(file)
+})
+
 const toTime = (ts) => {
   if (!ts) return ''
   const ms = ts > 1e10 ? ts : ts * 1000
@@ -34,13 +54,55 @@ function groupByDate(messages) {
   return groups
 }
 
+function AttachmentContent({ message, isMine }) {
+  if (!message.attachment_url) return null
+
+  if (message.attachment_type === 'image') {
+    return (
+      <a href={message.attachment_url} target="_blank" rel="noreferrer" className="block mb-2">
+        <img
+          src={message.attachment_url}
+          alt={message.attachment_name || 'Изображение'}
+          className="max-h-72 rounded-xl object-cover"
+          loading="lazy"
+        />
+      </a>
+    )
+  }
+
+  if (message.attachment_type === 'audio') {
+    return <audio className="max-w-full mb-2" src={message.attachment_url} controls preload="metadata" />
+  }
+
+  return (
+    <a
+      href={message.attachment_url}
+      target="_blank"
+      rel="noreferrer"
+      className={`mb-2 flex items-center gap-2 rounded-xl px-3 py-2 transition-colors ${
+        isMine ? 'bg-black/10 hover:bg-black/20' : 'bg-zinc-800 hover:bg-zinc-700'
+      }`}
+    >
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+        <path d="M5 2.5h4l3 3v8H5z"/><path d="M9 2.5v3h3"/><path d="M3 5v8.5h6"/>
+      </svg>
+      <span className="truncate">{message.attachment_name || 'Открыть файл'}</span>
+    </a>
+  )
+}
+
 export function ChatView({ chatId, chat, otherName, otherSub, onBack }) {
   const { user } = useAuth()
   const [messages, setMessages] = useState([])
   const [ready, setReady] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [attachment, setAttachment] = useState(null)
+  const [attachmentError, setAttachmentError] = useState('')
+  const [recording, setRecording] = useState(false)
   const bottomRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const recorderRef = useRef(null)
   const isFirstLoad = useRef(true)
 
   const scrollToBottom = (behavior = 'instant') => {
@@ -90,13 +152,80 @@ export function ChatView({ chatId, chat, otherName, otherSub, onBack }) {
     return () => clearInterval(interval)
   }, [chatId])
 
+  useEffect(() => {
+    return () => {
+      if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
+    }
+  }, [attachment?.previewUrl])
+
+  useEffect(() => () => {
+    recorderRef.current?.stream?.getTracks().forEach(track => track.stop())
+  }, [])
+
+  const chooseAttachment = (file) => {
+    if (!file) return
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      setAttachmentError('Файл слишком большой. Максимальный размер: 15 МБ.')
+      return
+    }
+    const type = getAttachmentType(file.type)
+    setAttachment({
+      file,
+      type,
+      previewUrl: type === 'image' ? URL.createObjectURL(file) : '',
+    })
+    setAttachmentError('')
+  }
+
+  const startRecording = async () => {
+    if (recording) {
+      recorderRef.current?.stop()
+      return
+    }
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setAttachmentError('Запись голоса не поддерживается этим браузером.')
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const preferredType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+        .find(type => MediaRecorder.isTypeSupported(type))
+      const recorder = new MediaRecorder(stream, preferredType ? { mimeType: preferredType } : undefined)
+      const chunks = []
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunks.push(event.data)
+      }
+      recorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop())
+        const mimeType = recorder.mimeType || 'audio/webm'
+        const extension = mimeType.includes('mp4') ? 'm4a' : 'webm'
+        chooseAttachment(new File([new Blob(chunks, { type: mimeType })], `voice-${Date.now()}.${extension}`, { type: mimeType }))
+        recorderRef.current = null
+        setRecording(false)
+      }
+      recorderRef.current = recorder
+      recorder.start()
+      setRecording(true)
+      setAttachmentError('')
+    } catch {
+      setAttachmentError('Не удалось получить доступ к микрофону.')
+    }
+  }
+
   const sendMessage = async () => {
-    if (!text.trim() || !chatId || sending) return
+    if ((!text.trim() && !attachment) || !chatId || sending || recording) return
     const draft = text.trim()
     setText('')
     setSending(true)
     try {
-      const res = await chatApi.sendMessage(chatId, draft)
+      const payload = { content: draft }
+      if (attachment) {
+        payload.attachment_base64 = await fileToBase64(attachment.file)
+        payload.attachment_name = attachment.file.name
+        payload.attachment_mime_type = attachment.file.type || 'application/octet-stream'
+        payload.attachment_type = attachment.type
+      }
+      const res = await chatApi.sendMessage(chatId, payload)
       const msg = res.data?.message || res.data
       if (msg?.id) {
         setMessages(prev => [...prev, msg])
@@ -104,6 +233,8 @@ export function ChatView({ chatId, chat, otherName, otherSub, onBack }) {
       } else {
         await loadMessages(true)
       }
+      setAttachment(null)
+      setAttachmentError('')
       setTimeout(() => scrollToBottom('smooth'), 50)
     } catch { setText(draft) }
     finally { setSending(false) }
@@ -179,7 +310,8 @@ export function ChatView({ chatId, chat, otherName, otherSub, onBack }) {
                                         ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-black rounded-br-sm shadow-amber-900/20'
                                         : 'bg-zinc-900/80 border border-zinc-800 text-gray-200 rounded-bl-sm backdrop-blur-sm'
                                 }`}>
-                                  <p className="leading-relaxed">{msg.content}</p>
+                                  <AttachmentContent message={msg} isMine={isMine} />
+                                  {msg.content && <p className="leading-relaxed">{msg.content}</p>}
                                   <p className={`text-xs mt-1 text-right ${isMine ? 'text-black/60' : 'text-zinc-500'}`}>
                                     {toTime(msg.created_at)}
                                   </p>
@@ -195,21 +327,52 @@ export function ChatView({ chatId, chat, otherName, otherSub, onBack }) {
         </div>
 
         {/* Поле ввода */}
-        <div className="border-t border-amber-600/20 bg-zinc-900/50 backdrop-blur-md px-6 py-4 flex gap-3 items-end flex-shrink-0">
-        <textarea
-            className="input-field flex-1 resize-none min-h-[44px] max-h-[120px] text-gray-200"
-            rows={1}
-            placeholder="Напишите сообщение..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-            disabled={!chatId || sending}
-        />
-          <button
+        <div className="border-t border-amber-600/20 bg-zinc-900/50 backdrop-blur-md px-6 py-4 flex-shrink-0">
+          {attachment && (
+            <div className="mb-3 flex items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-gray-300">
+              {attachment.previewUrl ? <img src={attachment.previewUrl} alt="" className="h-12 w-12 rounded-lg object-cover" /> : (
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M5 2.5h4l3 3v8H5z"/><path d="M9 2.5v3h3"/></svg>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate">{attachment.file.name}</p>
+                <p className="text-xs text-zinc-500">{formatFileSize(attachment.file.size)}</p>
+              </div>
+              <button onClick={() => setAttachment(null)} className="text-zinc-500 hover:text-amber-400" aria-label="Убрать вложение">×</button>
+            </div>
+          )}
+          {attachmentError && <p className="mb-2 text-xs text-red-400">{attachmentError}</p>}
+          <div className="flex gap-3 items-end">
+            <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { chooseAttachment(e.target.files?.[0]); e.target.value = '' }} />
+            <button
+              className="h-11 w-11 flex-shrink-0 rounded-xl border border-zinc-700 text-zinc-400 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-50"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!chatId || sending || recording}
+              aria-label="Прикрепить файл"
+            >
+              <svg className="mx-auto" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5.5 8.5l4-4a2 2 0 012.8 2.8l-5.5 5.5a3 3 0 01-4.2-4.2l5-5"/><path d="M5 10l5-5"/></svg>
+            </button>
+            <button
+              className={`h-11 w-11 flex-shrink-0 rounded-xl border transition-colors disabled:opacity-50 ${recording ? 'border-red-500 bg-red-500/15 text-red-400' : 'border-zinc-700 text-zinc-400 hover:border-amber-500/50 hover:text-amber-400'}`}
+              onClick={startRecording}
+              disabled={!chatId || sending}
+              aria-label={recording ? 'Остановить запись' : 'Записать голосовое'}
+            >
+              <svg className="mx-auto" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="5.5" y="2" width="5" height="8" rx="2.5"/><path d="M3.5 7.5a4.5 4.5 0 009 0M8 12v2M5.5 14h5"/></svg>
+            </button>
+            <textarea
+                className="input-field flex-1 resize-none min-h-[44px] max-h-[120px] text-gray-200"
+                rows={1}
+                placeholder={recording ? 'Идёт запись голосового...' : 'Напишите сообщение...'}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+                disabled={!chatId || sending}
+            />
+            <button
               className="btn-primary px-6 py-2.5 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-900/30"
               onClick={sendMessage}
-              disabled={!chatId || !text.trim() || sending}
-          >
+              disabled={!chatId || (!text.trim() && !attachment) || sending || recording}
+            >
             {sending ? (
                 <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
@@ -218,7 +381,8 @@ export function ChatView({ chatId, chat, otherName, otherSub, onBack }) {
             ) : (
                 'Отправить'
             )}
-          </button>
+            </button>
+          </div>
         </div>
       </div>
   )

@@ -69,9 +69,10 @@ export const chatApi = {
   closeChat: (chatId) => api.delete(`/chats/${chatId}`),
   getMessages: (chatId, params = {}) =>
     api.get(`/chats/${chatId}/messages`, { params }),
-  sendMessage: (chatId, content) =>
-    api.post(`/chats/${chatId}/messages`, { content }),
-  markRead: (chatId) => api.post(`/chats/${chatId}/read`),
+  sendMessage: (chatId, message) =>
+    api.post(`/chats/${chatId}/messages`, typeof message === 'string' ? { content: message } : message),
+  markRead: (chatId, lastReadMessageId) =>
+    api.post(`/chats/${chatId}/read`, lastReadMessageId ? { last_read_message_id: lastReadMessageId } : {}),
 }
 
 export const doctorApi = {

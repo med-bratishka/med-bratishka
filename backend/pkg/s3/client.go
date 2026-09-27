@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"path"
+	"net/url"
 	"strings"
 
 	"github.com/minio/minio-go/v7"
@@ -13,16 +13,16 @@ import (
 
 type Storage interface {
 	Upload(ctx context.Context, objectKey string, body []byte, contentType string) (string, error)
+	Delete(ctx context.Context, objectKey string) error
 }
 
 type Client struct {
-	client   *minio.Client
-	bucket   string
-	endpoint string
-	useSSL   bool
+	client        *minio.Client
+	bucket        string
+	publicBaseURL string
 }
 
-func New(endpoint, region, accessKey, secretKey, bucket string, useSSL bool) (*Client, error) {
+func New(endpoint, publicBaseURL, region, accessKey, secretKey, bucket string, useSSL bool) (*Client, error) {
 	if endpoint == "" || accessKey == "" || secretKey == "" || bucket == "" {
 		return nil, fmt.Errorf("s3 config is incomplete")
 	}
@@ -36,7 +36,15 @@ func New(endpoint, region, accessKey, secretKey, bucket string, useSSL bool) (*C
 		return nil, fmt.Errorf("init minio client: %w", err)
 	}
 
-	return &Client{client: mc, bucket: bucket, endpoint: endpoint, useSSL: useSSL}, nil
+	if publicBaseURL == "" {
+		scheme := "https"
+		if !useSSL {
+			scheme = "http"
+		}
+		publicBaseURL = fmt.Sprintf("%s://%s", scheme, endpoint)
+	}
+
+	return &Client{client: mc, bucket: bucket, publicBaseURL: strings.TrimRight(publicBaseURL, "/")}, nil
 }
 
 func (c *Client) Upload(ctx context.Context, objectKey string, body []byte, contentType string) (string, error) {
@@ -49,9 +57,19 @@ func (c *Client) Upload(ctx context.Context, objectKey string, body []byte, cont
 		return "", fmt.Errorf("put object: %w", err)
 	}
 
-	scheme := "https"
-	if !c.useSSL {
-		scheme = "http"
+	segments := strings.Split(strings.TrimPrefix(objectKey, "/"), "/")
+	for i := range segments {
+		segments[i] = url.PathEscape(segments[i])
 	}
-	return fmt.Sprintf("%s://%s/%s/%s", scheme, c.endpoint, c.bucket, path.Clean(strings.TrimPrefix(objectKey, "/"))), nil
+	return fmt.Sprintf("%s/%s/%s", c.publicBaseURL, url.PathEscape(c.bucket), strings.Join(segments, "/")), nil
+}
+
+func (c *Client) Delete(ctx context.Context, objectKey string) error {
+	if objectKey == "" {
+		return nil
+	}
+	if err := c.client.RemoveObject(ctx, c.bucket, objectKey, minio.RemoveObjectOptions{}); err != nil {
+		return fmt.Errorf("remove object: %w", err)
+	}
+	return nil
 }

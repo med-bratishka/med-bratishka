@@ -45,6 +45,7 @@ type ChatMessage struct {
 	SenderName         string
 	Content            string
 	AttachmentURL      string
+	AttachmentName     string
 	AttachmentType     string
 	AttachmentMimeType string
 	CreatedAt          int64

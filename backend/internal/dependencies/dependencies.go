@@ -78,7 +78,7 @@ func New(cfg *config.Config) (*Dependencies, error) {
 
 	var storage s3.Storage
 	if cfg.S3.Endpoint != "" && cfg.S3.AccessKey != "" && cfg.S3.SecretKey != "" && cfg.S3.Bucket != "" {
-		s3Client, s3Err := s3.New(cfg.S3.Endpoint, cfg.S3.Region, cfg.S3.AccessKey, cfg.S3.SecretKey, cfg.S3.Bucket, cfg.S3.UseSSL)
+		s3Client, s3Err := s3.New(cfg.S3.Endpoint, cfg.S3.PublicURL, cfg.S3.Region, cfg.S3.AccessKey, cfg.S3.SecretKey, cfg.S3.Bucket, cfg.S3.UseSSL)
 		if s3Err != nil {
 			return nil, s3Err
 		}

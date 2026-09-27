@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -22,10 +23,18 @@ type ChatHandler struct {
 	chatService service.ChatService
 	formats     strfmt.Registry
 	log         logger.Logger
+	maxBodySize int64
 }
 
-func NewChatHandler(authService service.AuthService, chatService service.ChatService, log logger.Logger) *ChatHandler {
-	return &ChatHandler{authService: authService, chatService: chatService, formats: strfmt.Default, log: log}
+func NewChatHandler(authService service.AuthService, chatService service.ChatService, log logger.Logger, maxUploadSizeMB int64) *ChatHandler {
+	const jsonOverhead = int64(1024 * 1024)
+	return &ChatHandler{
+		authService: authService,
+		chatService: chatService,
+		formats:     strfmt.Default,
+		log:         log,
+		maxBodySize: maxUploadSizeMB*1024*1024*4/3 + jsonOverhead,
+	}
 }
 
 func (h *ChatHandler) FillHandlers(router *mux.Router) {
@@ -131,8 +140,16 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.maxBodySize > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, h.maxBodySize)
+	}
 	var req models.ChatMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			makeErrorResponse(w, r, h.log, http.StatusRequestEntityTooLarge, "ATTACHMENT_TOO_LARGE", "attachment too large", err)
+			return
+		}
 		makeErrorResponse(w, r, h.log, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", err)
 		return
 	}
@@ -159,6 +176,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		SenderName:         msg.SenderName,
 		Content:            msg.Content,
 		AttachmentURL:      msg.AttachmentURL,
+		AttachmentName:     msg.AttachmentName,
 		AttachmentType:     msg.AttachmentType,
 		AttachmentMimeType: msg.AttachmentMimeType,
 		CreatedAt:          msg.CreatedAt,
@@ -264,6 +282,7 @@ func (h *ChatHandler) GetChatMessages(w http.ResponseWriter, r *http.Request) {
 			SenderName:         m.SenderName,
 			Content:            m.Content,
 			AttachmentURL:      m.AttachmentURL,
+			AttachmentName:     m.AttachmentName,
 			AttachmentType:     m.AttachmentType,
 			AttachmentMimeType: m.AttachmentMimeType,
 			CreatedAt:          m.CreatedAt,

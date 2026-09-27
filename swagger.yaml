@@ -676,18 +676,19 @@ definitions:
         minLength: 1
       attachment_base64:
         type: string
-        description: Base64 payload of image/audio file (optional)
+        description: Base64 payload of image/audio/other file (optional)
       attachment_name:
         type: string
         description: Original filename for attachment
       attachment_mime_type:
         type: string
-        description: MIME type (image/* or audio/*)
+        description: MIME type
       attachment_type:
         type: string
         enum:
           - image
           - audio
+          - file
 
   MarkChatReadRequest:
     type: object
@@ -711,6 +712,8 @@ definitions:
       content:
         type: string
       attachment_url:
+        type: string
+      attachment_name:
         type: string
       attachment_type:
         type: string
