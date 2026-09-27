@@ -16,3 +16,12 @@ func TestDefaultConfigIsValid(t *testing.T) {
 		t.Fatalf("default config should be valid: %v", err)
 	}
 }
+
+func TestValidateRejectsPartialWebPushConfig(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.WebPush.VAPIDPublicKey = "public"
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected partial web push config to fail validation")
+	}
+}

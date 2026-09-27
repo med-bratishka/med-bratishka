@@ -3,6 +3,7 @@ module medbratishka
 go 1.25.2
 
 require (
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/go-openapi/errors v0.22.7
 	github.com/go-openapi/strfmt v0.26.1
 	github.com/go-openapi/swag v0.25.5

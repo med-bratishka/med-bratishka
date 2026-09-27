@@ -138,14 +138,16 @@ func (w *NotificationWorker) handleEvent(ctx context.Context, event domain.Outbo
 		return
 	}
 
-	delivered := w.publisher.PublishToUser(payload.RecipientID, domain.NotificationTopicChat, map[string]interface{}{
-		"type":         event.EventType,
-		"chat_id":      payload.ChatID,
-		"message_id":   payload.MessageID,
-		"sender_id":    payload.SenderID,
-		"recipient_id": payload.RecipientID,
-		"content":      payload.Content,
-		"created_at":   payload.CreatedAt,
+	delivered := w.publisher.PublishToUser(payload.RecipientID, domain.NotificationTopicChat, domain.ChatNotificationMessage{
+		Type:           event.EventType,
+		ChatID:         payload.ChatID,
+		MessageID:      payload.MessageID,
+		SenderID:       payload.SenderID,
+		RecipientID:    payload.RecipientID,
+		RecipientRole:  payload.RecipientRole,
+		Content:        payload.Content,
+		AttachmentType: payload.AttachmentType,
+		CreatedAt:      payload.CreatedAt,
 	})
 
 	tx, err := w.txRepo.StartTransaction(ctx)

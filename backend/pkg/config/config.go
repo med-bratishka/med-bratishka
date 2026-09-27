@@ -14,6 +14,7 @@ type Config struct {
 	Database DatabaseConfig `json:"database"`
 	Auth     AuthConfig     `json:"auth"`
 	S3       S3Config       `json:"s3"`
+	WebPush  WebPushConfig  `json:"web_push"`
 }
 
 type ServerConfig struct {
@@ -52,6 +53,12 @@ type S3Config struct {
 	MaxUploadSizeMB int64  `json:"max_upload_size_mb"`
 }
 
+type WebPushConfig struct {
+	VAPIDPublicKey  string `json:"vapid_public_key"`
+	VAPIDPrivateKey string `json:"vapid_private_key"`
+	Subject         string `json:"subject"`
+}
+
 type jsonConfig struct {
 	Server   ServerConfig   `json:"server"`
 	Database DatabaseConfig `json:"database"`
@@ -64,7 +71,8 @@ type jsonConfig struct {
 		TwoFactorChallengeTTL  string `json:"two_factor_challenge_ttl"`
 		TrustedDeviceTTL       string `json:"trusted_device_ttl"`
 	} `json:"auth"`
-	S3 S3Config `json:"s3"`
+	S3      S3Config      `json:"s3"`
+	WebPush WebPushConfig `json:"web_push"`
 }
 
 func LoadConfig() *Config {
@@ -113,6 +121,7 @@ func defaultConfig() *Config {
 			UseSSL:          true,
 			MaxUploadSizeMB: 15,
 		},
+		WebPush: WebPushConfig{},
 	}
 }
 
@@ -201,6 +210,15 @@ func loadFromJSON(path string) (*Config, bool) {
 	if jc.S3.MaxUploadSizeMB != 0 {
 		cfg.S3.MaxUploadSizeMB = jc.S3.MaxUploadSizeMB
 	}
+	if jc.WebPush.VAPIDPublicKey != "" {
+		cfg.WebPush.VAPIDPublicKey = jc.WebPush.VAPIDPublicKey
+	}
+	if jc.WebPush.VAPIDPrivateKey != "" {
+		cfg.WebPush.VAPIDPrivateKey = jc.WebPush.VAPIDPrivateKey
+	}
+	if jc.WebPush.Subject != "" {
+		cfg.WebPush.Subject = jc.WebPush.Subject
+	}
 	return cfg, true
 }
 
@@ -222,6 +240,16 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.Auth.TrustedDeviceTTL <= 0 {
 		return fmt.Errorf("auth.trusted_device_ttl must be positive")
+	}
+	webPushValues := []string{cfg.WebPush.VAPIDPublicKey, cfg.WebPush.VAPIDPrivateKey, cfg.WebPush.Subject}
+	configuredWebPushValues := 0
+	for _, value := range webPushValues {
+		if value != "" {
+			configuredWebPushValues++
+		}
+	}
+	if configuredWebPushValues != 0 && configuredWebPushValues != len(webPushValues) {
+		return fmt.Errorf("web_push requires vapid_public_key, vapid_private_key and subject together")
 	}
 	return nil
 }
@@ -254,6 +282,10 @@ func applyEnvOverrides(cfg *Config) {
 	cfg.S3.Bucket = getEnv("S3_BUCKET", cfg.S3.Bucket)
 	cfg.S3.UseSSL = parseBoolEnv("S3_USE_SSL", cfg.S3.UseSSL)
 	cfg.S3.MaxUploadSizeMB = parseInt64Env("S3_MAX_UPLOAD_SIZE_MB", cfg.S3.MaxUploadSizeMB)
+
+	cfg.WebPush.VAPIDPublicKey = getEnv("WEB_PUSH_VAPID_PUBLIC_KEY", cfg.WebPush.VAPIDPublicKey)
+	cfg.WebPush.VAPIDPrivateKey = getEnv("WEB_PUSH_VAPID_PRIVATE_KEY", cfg.WebPush.VAPIDPrivateKey)
+	cfg.WebPush.Subject = getEnv("WEB_PUSH_SUBJECT", cfg.WebPush.Subject)
 }
 
 func getEnv(key, defaultValue string) string {

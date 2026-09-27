@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useWebPush } from '../../hooks/useWebPush'
 
 const DoctorNav = [
   { to: '/doctor', label: 'Пациенты', icon: (<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>) },
@@ -21,14 +22,25 @@ const PatientNav = [
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const { status: pushStatus, error: pushError, enable: enablePush, disable: disablePush } = useWebPush()
   const navigate = useNavigate()
   const isDoctor = user?.role === 'doctor'
   const isAdmin = user?.role === 'admin'
   const navItems = isAdmin ? AdminNav : isDoctor ? DoctorNav : PatientNav
   const roleLabel = isAdmin ? 'Администратор' : isDoctor ? 'Панель врача' : 'Панель пациента'
-  const handleLogout = () => { logout(); navigate('/auth') }
+  const handleLogout = async () => {
+    try {
+      if (pushEnabled) await disablePush()
+    } finally {
+      logout()
+      navigate('/auth')
+    }
+  }
   const displayName = user?.name || [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.login || user?.email || 'Пользователь'
   const initials = displayName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || (displayName[0] || '?').toUpperCase()
+  const canUsePush = !isAdmin && pushStatus !== 'unsupported' && pushStatus !== 'unavailable'
+  const pushEnabled = pushStatus === 'enabled'
+  const pushBusy = pushStatus === 'loading'
 
   return (
       <aside className="w-64 bg-gradient-to-b from-zinc-950 via-black to-zinc-950 border-r border-amber-600/20 flex flex-col h-screen sticky top-0 shadow-2xl shadow-black z-50">
@@ -75,6 +87,17 @@ export default function Sidebar() {
         </nav>
 
         <div className="px-3 py-4 border-t border-amber-600/20 bg-gradient-to-r from-amber-600/5 to-transparent">
+          {canUsePush && (
+              <button
+                  onClick={pushEnabled ? disablePush : enablePush}
+                  disabled={pushBusy || pushStatus === 'denied'}
+                  className="mb-3 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900/60 text-left text-xs text-zinc-400 hover:border-amber-600/30 hover:text-amber-400 transition-all disabled:opacity-60"
+                  title={pushError || (pushStatus === 'denied' ? 'Разрешите уведомления в настройках браузера' : '')}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M12 6a4 4 0 00-8 0c0 4-1.5 4-1.5 5h11C13.5 10 12 10 12 6z"/><path d="M6.5 13h3"/></svg>
+                <span>{pushBusy ? 'Проверяем уведомления...' : pushEnabled ? 'Push-уведомления включены' : pushStatus === 'denied' ? 'Уведомления запрещены' : 'Включить push-уведомления'}</span>
+              </button>
+          )}
           <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-zinc-900/80 border border-zinc-800 hover:border-amber-600/30 transition-all duration-300">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-xs font-bold text-black flex-shrink-0 shadow-lg shadow-amber-900/30">
               {initials}

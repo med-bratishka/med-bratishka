@@ -75,6 +75,12 @@ export const chatApi = {
     api.post(`/chats/${chatId}/read`, lastReadMessageId ? { last_read_message_id: lastReadMessageId } : {}),
 }
 
+export const webPushApi = {
+  getConfig: () => api.get('/notifications/web-push/config'),
+  subscribe: (subscription) => api.post('/notifications/web-push/subscriptions', subscription),
+  unsubscribe: (endpoint) => api.delete('/notifications/web-push/subscriptions', { data: { endpoint } }),
+}
+
 export const doctorApi = {
   setCode: (code) => api.put('/doctors/me/code', { doctor_code: code }),
   unlinkPatient: (patientId) => api.delete(`/doctors/me/patients/${patientId}`),

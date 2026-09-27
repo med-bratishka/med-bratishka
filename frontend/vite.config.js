@@ -11,6 +11,7 @@ export default defineConfig({
       '/patients': 'http://localhost:8080',
       '/clinics': 'http://localhost:8080',
       '/chats': 'http://localhost:8080',
+      '/notifications': 'http://localhost:8080',
       '/health': 'http://localhost:8080',
       '/ws': {
         target: 'http://localhost:8080',

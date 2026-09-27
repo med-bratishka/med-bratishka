@@ -467,8 +467,68 @@ paths:
           description: Unauthorized
           content:
             application/json:
+                  schema:
+                    $ref: '#/components/schemas/ErrorResponse'
+
+  /notifications/web-push/config:
+    get:
+      summary: Get Web Push configuration
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Web Push public configuration
+          content:
+            application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/WebPushConfigResponse'
+
+  /notifications/web-push/subscriptions:
+    post:
+      summary: Register browser Web Push subscription
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebPushSubscription'
+      responses:
+        '200':
+          description: Subscription saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+    delete:
+      summary: Delete browser Web Push subscription
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - endpoint
+              properties:
+                endpoint:
+                  type: string
+      responses:
+        '200':
+          description: Subscription deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
 
 components:
   schemas:
@@ -835,12 +895,47 @@ components:
         recipient_id:
           type: integer
           format: int64
+        recipient_role:
+          type: string
+          enum:
+            - doctor
+            - patient
         content:
+          type: string
+          nullable: true
+        attachment_type:
           type: string
           nullable: true
         created_at:
           type: integer
           format: int64
+
+    WebPushConfigResponse:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        public_key:
+          type: string
+
+    WebPushSubscription:
+      type: object
+      required:
+        - endpoint
+        - keys
+      properties:
+        endpoint:
+          type: string
+        keys:
+          type: object
+          required:
+            - p256dh
+            - auth
+          properties:
+            p256dh:
+              type: string
+            auth:
+              type: string
 
   securitySchemes:
     bearerAuth:
@@ -859,4 +954,4 @@ tags:
   - name: Chat
     description: Doctor-patient chats
   - name: Notifications
-    description: Realtime WebSocket notification subscriptions
+    description: Realtime WebSocket and browser Web Push notifications

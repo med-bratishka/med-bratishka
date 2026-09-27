@@ -34,13 +34,19 @@ function formatTime(ts) {
   return d.toLocaleDateString('ru', { day: 'numeric', month: 'short' })
 }
 
-function ChatList({ onOpen }) {
+function ChatList({ onOpen, requestedChatId }) {
   const { chats, meta, loading, markChatAsRead } = useChatsWithMeta(8000)
 
   const open = (chat) => {
     markChatAsRead(chat.id)
     onOpen(chat)
   }
+
+  useEffect(() => {
+    if (!requestedChatId || chats.length === 0) return
+    const requestedChat = chats.find(chat => chat.id === requestedChatId)
+    if (requestedChat) open(requestedChat)
+  }, [chats, requestedChatId])
 
   return (
       <div className="min-h-screen relative">
@@ -141,6 +147,7 @@ function ChatList({ onOpen }) {
 export default function PatientChatPage() {
   const location = useLocation()
   const [activeChat, setActiveChat] = useState(location.state?.chat ?? null)
+  const requestedChatId = Number(new URLSearchParams(location.search).get('chat_id'))
 
   useEffect(() => {
     if (location.state?.chat) setActiveChat(location.state.chat)
@@ -161,5 +168,5 @@ export default function PatientChatPage() {
     )
   }
 
-  return <ChatList onOpen={setActiveChat} />
+  return <ChatList onOpen={setActiveChat} requestedChatId={requestedChatId} />
 }

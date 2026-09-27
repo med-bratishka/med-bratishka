@@ -33,7 +33,7 @@ type ChatRepository interface {
 	CloseChatTX(ctx context.Context, tx transaction.Transaction, chatID, closedAt int64) error
 	GetChatByIDTX(ctx context.Context, tx transaction.Transaction, chatID int64) (*models.Chat, error)
 	GetMessageByIDTX(ctx context.Context, tx transaction.Transaction, messageID int64) (*models.Message, error)
-	CreateMessageNotificationTX(ctx context.Context, tx transaction.Transaction, chat *models.Chat, messageID, senderID int64, content *string, createdAt int64) error
+	CreateMessageNotificationTX(ctx context.Context, tx transaction.Transaction, chat *models.Chat, messageID, senderID int64, content, attachmentType *string, createdAt int64) error
 	MarkChatReadTX(ctx context.Context, tx transaction.Transaction, chatID, userID, lastReadMessageID, updatedAt int64) error
 }
 
@@ -287,20 +287,24 @@ func (r *pgChatRepository) GetMessageByIDTX(ctx context.Context, tx transaction.
 	return &message, nil
 }
 
-func (r *pgChatRepository) CreateMessageNotificationTX(ctx context.Context, tx transaction.Transaction, chat *models.Chat, messageID, senderID int64, content *string, createdAt int64) error {
+func (r *pgChatRepository) CreateMessageNotificationTX(ctx context.Context, tx transaction.Transaction, chat *models.Chat, messageID, senderID int64, content, attachmentType *string, createdAt int64) error {
 	recipientID := chat.PatientID
+	recipientRole := "patient"
 	if senderID == chat.PatientID {
 		recipientID = chat.DoctorID
+		recipientRole = "doctor"
 	}
 	eventID := uuid.New().String()
 	idempotencyKey := fmt.Sprintf("chat.message.created:%d:%d", messageID, recipientID)
 	payload, err := json.Marshal(map[string]interface{}{
-		"chat_id":      chat.ID,
-		"message_id":   messageID,
-		"sender_id":    senderID,
-		"recipient_id": recipientID,
-		"content":      content,
-		"created_at":   createdAt,
+		"chat_id":         chat.ID,
+		"message_id":      messageID,
+		"sender_id":       senderID,
+		"recipient_id":    recipientID,
+		"recipient_role":  recipientRole,
+		"content":         content,
+		"attachment_type": attachmentType,
+		"created_at":      createdAt,
 	})
 	if err != nil {
 		return err

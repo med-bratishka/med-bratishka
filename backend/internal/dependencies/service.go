@@ -98,10 +98,25 @@ func (d *Dependencies) NotificationWorker() *service.NotificationWorker {
 		d.notificationWorker = service.NewNotificationWorker(
 			d.TxRepo(),
 			d.NotificationRepo(),
-			d.NotificationHub(),
+			service.NewMultiNotificationPublisher(d.NotificationHub(), d.WebPushService()),
 			d.TimeManager(),
 			d.Logger(),
 		)
 	}
 	return d.notificationWorker
+}
+
+func (d *Dependencies) WebPushService() service.WebPushService {
+	if d.webPushService == nil {
+		d.webPushService = service.NewWebPushService(
+			d.TxRepo(),
+			d.WebPushRepo(),
+			d.TimeManager(),
+			d.Logger(),
+			d.cfg.WebPush.VAPIDPublicKey,
+			d.cfg.WebPush.VAPIDPrivateKey,
+			d.cfg.WebPush.Subject,
+		)
+	}
+	return d.webPushService
 }

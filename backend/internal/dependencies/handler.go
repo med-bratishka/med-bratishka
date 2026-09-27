@@ -39,6 +39,13 @@ func (d *Dependencies) NotificationWSHandler() handler.Handler {
 	return d.notificationWSHandler
 }
 
+func (d *Dependencies) WebPushHandler() handler.Handler {
+	if d.webPushHandler == nil {
+		d.webPushHandler = handler.NewWebPushHandler(d.AuthService(), d.WebPushService(), d.Logger())
+	}
+	return d.webPushHandler
+}
+
 func (d *Dependencies) CatalogHandler() handler.Handler {
 	if d.catalogHandler == nil {
 		d.catalogHandler = handler.NewCatalogHandler(d.CatalogService(), d.Logger())

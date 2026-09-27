@@ -29,5 +29,10 @@
     "bucket": "medbratishka",
     "use_ssl": false,
     "max_upload_size_mb": 15
+  },
+  "web_push": {
+    "vapid_public_key": "BL4bWhbJjVg_8luZv8UP4iyaUVbyBl24hNG29LlCnQ7-_9jE9Jj5khsYfvNC_JIcXrI_2f0v1BDy4cl54eiD_dw",
+    "vapid_private_key": "GFHd5xbSaGGTcqKh-2Mr_o6NtGZ8dMiA7C-jQL4StBU",
+    "subject": "mailto:dev@medbratishka.local"
   }
 }

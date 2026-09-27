@@ -189,7 +189,7 @@ func (s *chatService) SendMessage(ctx context.Context, senderCtx *domain.UserTok
 	if err != nil {
 		return nil, wrapInternal("SendMessage/SendMessageTX", err)
 	}
-	if err := s.chatRepo.CreateMessageNotificationTX(ctx, tx, chat, messageID, senderCtx.ID, contentPtr, now); err != nil {
+	if err := s.chatRepo.CreateMessageNotificationTX(ctx, tx, chat, messageID, senderCtx.ID, contentPtr, attachmentType, now); err != nil {
 		return nil, wrapInternal("SendMessage/CreateMessageNotificationTX", err)
 	}
 

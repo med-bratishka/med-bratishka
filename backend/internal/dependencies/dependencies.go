@@ -30,6 +30,7 @@ type Dependencies struct {
 	patientRepo      repository.PatientRepository
 	chatRepo         repository.ChatRepository
 	notificationRepo repository.NotificationRepository
+	webPushRepo      repository.WebPushSubscriptionRepository
 
 	timeManager time_manager.TimeManager
 	logger      logger.Logger
@@ -43,12 +44,14 @@ type Dependencies struct {
 	chatService           service.ChatService
 	catalogService        service.CatalogService
 	notificationWorker    *service.NotificationWorker
+	webPushService        service.WebPushService
 	notificationHub       *handler.NotificationHub
 	authHandler           handler.Handler
 	bindingsHandler       handler.Handler
 	chatHandler           handler.Handler
 	catalogHandler        handler.Handler
 	notificationWSHandler handler.Handler
+	webPushHandler        handler.Handler
 }
 
 func New(cfg *config.Config) (*Dependencies, error) {

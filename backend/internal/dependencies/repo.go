@@ -67,3 +67,10 @@ func (d *Dependencies) NotificationRepo() repository.NotificationRepository {
 	}
 	return d.notificationRepo
 }
+
+func (d *Dependencies) WebPushRepo() repository.WebPushSubscriptionRepository {
+	if d.webPushRepo == nil {
+		d.webPushRepo = repository.NewWebPushSubscriptionRepository()
+	}
+	return d.webPushRepo
+}

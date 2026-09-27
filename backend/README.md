@@ -115,6 +115,11 @@ S3_SECRET_KEY=minioadmin
 S3_BUCKET=medbratishka
 S3_USE_SSL=false
 S3_MAX_UPLOAD_SIZE_MB=15
+
+# Web Push (сгенерируйте отдельную VAPID-пару для production)
+WEB_PUSH_VAPID_PUBLIC_KEY=
+WEB_PUSH_VAPID_PRIVATE_KEY=
+WEB_PUSH_SUBJECT=mailto:admin@example.com
 ```
 
 ## Запуск через Docker Compose
@@ -146,6 +151,10 @@ docker compose down
 ```bash
 docker compose down -v
 ```
+
+Web Push не требует отдельного контейнера: приложение отправляет уведомления напрямую
+в push-сервис браузера. Для production передайте собственную VAPID-пару через
+`WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY` и `WEB_PUSH_SUBJECT`.
 
 ## Локальный запуск без Docker
 

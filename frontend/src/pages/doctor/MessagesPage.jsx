@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useChatsWithMeta } from '../../hooks/useChatsWithMeta'
 
@@ -35,6 +35,7 @@ function formatTime(ts) {
 
 export default function MessagesPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { chats, meta, loading, markChatAsRead, reload } = useChatsWithMeta(8000)
 
   useEffect(() => {
@@ -51,6 +52,13 @@ export default function MessagesPage() {
     markChatAsRead(chat.id)
     navigate('/doctor/chat', { state: { chatId: chat.id, chat } })
   }
+
+  useEffect(() => {
+    const requestedChatId = Number(new URLSearchParams(location.search).get('chat_id'))
+    if (!requestedChatId || chats.length === 0) return
+    const requestedChat = chats.find(chat => chat.id === requestedChatId)
+    if (requestedChat) open(requestedChat)
+  }, [chats, location.search])
 
   return (
       <div className="min-h-screen relative">

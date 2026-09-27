@@ -25,12 +25,54 @@ type OutboxEvent struct {
 }
 
 type ChatNotificationPayload struct {
-	ChatID      int64   `json:"chat_id"`
-	MessageID   int64   `json:"message_id"`
-	SenderID    int64   `json:"sender_id"`
-	RecipientID int64   `json:"recipient_id"`
-	Content     *string `json:"content,omitempty"`
-	CreatedAt   int64   `json:"created_at"`
+	ChatID         int64   `json:"chat_id"`
+	MessageID      int64   `json:"message_id"`
+	SenderID       int64   `json:"sender_id"`
+	RecipientID    int64   `json:"recipient_id"`
+	RecipientRole  Role    `json:"recipient_role"`
+	Content        *string `json:"content,omitempty"`
+	AttachmentType *string `json:"attachment_type,omitempty"`
+	CreatedAt      int64   `json:"created_at"`
+}
+
+type ChatNotificationMessage struct {
+	Type           string  `json:"type"`
+	ChatID         int64   `json:"chat_id"`
+	MessageID      int64   `json:"message_id"`
+	SenderID       int64   `json:"sender_id"`
+	RecipientID    int64   `json:"recipient_id"`
+	RecipientRole  Role    `json:"recipient_role"`
+	Content        *string `json:"content,omitempty"`
+	AttachmentType *string `json:"attachment_type,omitempty"`
+	CreatedAt      int64   `json:"created_at"`
+}
+
+type WebPushSubscription struct {
+	ID        int64  `db:"id"`
+	UserID    int64  `db:"user_id"`
+	Endpoint  string `db:"endpoint"`
+	P256DH    string `db:"p256dh"`
+	Auth      string `db:"auth"`
+	UserAgent string `db:"user_agent"`
+	CreatedAt int64  `db:"created_at"`
+	UpdatedAt int64  `db:"updated_at"`
+}
+
+type WebPushSubscriptionInput struct {
+	Endpoint string      `json:"endpoint"`
+	Keys     WebPushKeys `json:"keys"`
+}
+
+type WebPushKeys struct {
+	P256DH string `json:"p256dh"`
+	Auth   string `json:"auth"`
+}
+
+type WebPushNotification struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+	URL   string `json:"url"`
+	Tag   string `json:"tag"`
 }
 
 type WebSocketInboundMessage struct {
