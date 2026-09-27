@@ -115,6 +115,9 @@ func (w *NotificationWorker) processBatch(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	if len(events) > 0 {
+		w.log.Debugf("notification worker picked %d events", len(events))
+	}
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("commit picked events: %w", err)
 	}
@@ -130,13 +133,17 @@ func (w *NotificationWorker) handleEvent(ctx context.Context, event domain.Outbo
 
 	var payload domain.ChatNotificationPayload
 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		w.log.Warningf("notification worker decode payload failed: event_id=%s err=%v", event.ID, err)
 		w.markFailed(ctx, event.ID, fmt.Errorf("decode payload: %w", err), now)
 		return
 	}
 	if payload.RecipientID == 0 || payload.ChatID == 0 || payload.MessageID == 0 {
+		w.log.Warningf("notification worker invalid payload identifiers: event_id=%s payload=%+v", event.ID, payload)
 		w.markFailed(ctx, event.ID, fmt.Errorf("invalid payload identifiers"), now)
 		return
 	}
+
+	w.log.Debugf("notification worker handling event: event_id=%s recipient_id=%d message_id=%d", event.ID, payload.RecipientID, payload.MessageID)
 
 	delivered := w.publisher.PublishToUser(payload.RecipientID, domain.NotificationTopicChat, domain.ChatNotificationMessage{
 		Type:           event.EventType,
@@ -149,6 +156,8 @@ func (w *NotificationWorker) handleEvent(ctx context.Context, event domain.Outbo
 		AttachmentType: payload.AttachmentType,
 		CreatedAt:      payload.CreatedAt,
 	})
+
+	w.log.Debugf("notification worker publish result: event_id=%s delivered=%t", event.ID, delivered)
 
 	tx, err := w.txRepo.StartTransaction(ctx)
 	if err != nil {

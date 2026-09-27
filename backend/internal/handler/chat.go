@@ -158,6 +158,9 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Diagnostic log: входящий запрос
+	h.log.Debugf("SendMessage request: user=%d chat=%d content_len=%d has_attachment=%t", userCtx.ID, chatID, len(req.Content), req.AttachmentBase64 != "")
+
 	input, err := toSendMessageInput(&req)
 	if err != nil {
 		makeErrorResponse(w, r, h.log, http.StatusBadRequest, "INVALID_ATTACHMENT", "invalid attachment", err)
@@ -169,6 +172,9 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		makeErrorResponse(w, r, h.log, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error", err)
 		return
 	}
+
+	// Diagnostic log: успешная отправка — проверять наличие записи и событий
+	h.log.Debugf("SendMessage succeeded: user=%d chat=%d message_id=%d", userCtx.ID, chatID, msg.ID)
 
 	writeJSON(w, http.StatusOK, &models.ChatMessageResponse{
 		ID:                 msg.ID,
