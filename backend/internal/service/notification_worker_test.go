@@ -9,6 +9,7 @@ import (
 
 	"medbratishka/internal/domain"
 	"medbratishka/internal/repository/transaction"
+	"medbratishka/pkg/logger"
 )
 
 func TestNotificationWorkerProcessesOnlineChatEvent(t *testing.T) {
@@ -102,7 +103,12 @@ func TestNotificationWorkerProcessBatchPicksAndHandlesEvents(t *testing.T) {
 }
 
 func newTestNotificationWorker(repo *fakeNotificationRepo, publisher *fakeNotificationPublisher) *NotificationWorker {
+	log, err := logger.NewLogger()
+	if err != nil {
+		panic(err)
+	}
 	return &NotificationWorker{
+		log:              log,
 		txRepo:           &fakeTxRepo{},
 		notificationRepo: repo,
 		publisher:        publisher,
