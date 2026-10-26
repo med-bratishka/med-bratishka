@@ -91,7 +91,7 @@ INSERT INTO patient_profiles (user_id, birth_date, gender, created_at, updated_a
   (27, -193766400000, 'M', 1793001600000, 1793001600000),
   (28, -256838400000, 'F', 1793001600000, 1793001600000);
 
--- Подписки пациент ↔ врач (patient18–20 без врача: на них показывают ввод кода)
+-- Подписки пациент ↔ врач (patient19 и patient20 без врача: на них показывают ввод кода)
 INSERT INTO doctor_patients (doctor_id, patient_id, created_at) VALUES
   (3, 9, 1793001600000),
   (3, 10, 1793001600000),
