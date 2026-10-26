@@ -1,4 +1,4 @@
-.PHONY: help build run run-full generate generate-local build-models build-models-ci postgres.start postgres.stop migrate.up migrate.down migrate.create migrate.status migrate.reset swagger.start swagger.stop lint fmt test deps clean doctor version setup
+.PHONY: seed.demo help build run run-full generate generate-local build-models build-models-ci postgres.start postgres.stop migrate.up migrate.down migrate.create migrate.status migrate.reset swagger.start swagger.stop lint fmt test deps clean doctor version setup
 
 PROJECT_DIR = $(shell pwd)
 PROJECT_NAME = medbratishka
@@ -292,3 +292,7 @@ setup:
 	@echo "  make help       - Показать все команды"
 
 .DEFAULT_GOAL := help
+
+seed.demo:
+	@echo "Загрузка демонстрационных данных (очищает таблицы!)"
+	PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1 -f seed/demo_data.sql
